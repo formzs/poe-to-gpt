@@ -1,5 +1,5 @@
 # poe-gpt-api poe-gpt-api
-A converter that can convert the API Token provided by POE into the API format of OpenAI, allowing other applications dependent on the OpenAI API to use POE's API.
+A converter that can convert the API Token provided by POE into the API format of OpenAI, allowing other applications dependent on the **OpenAI API** to use POE's API.
 
 This is a tool that converts the API key provided by Poe (Path of Exile) official website into a compatible OpenAI API key. It enables Poe API key to be used with tools that depend on OpenAI API key. The main reason for developing this tool is to provide convenience and stability for users in mainland China who find it inconvenient to subscribe to and recharge OpenAI API. 
 
