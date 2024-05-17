@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  api:
+    build: .
+    ports:
+      - "3700:3700"
+    volumes:
+      - ./config.toml:/app/config.toml
+    depends_on:
+      - external
+    command: >
+      sh -c "sleep 8 &&
+             echo 'Starting API service after waiting for external service...' &&
+             /app/poe-openai-proxy"
+
+  external:
+    build: ./external
+    ports:
+      - "5100:5100"
+    volumes:
+      - ./config.toml:/config.toml
