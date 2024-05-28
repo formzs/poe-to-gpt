@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"net/http"
-	"strings"
+	// "strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -24,13 +24,13 @@ func contains(s []string, v string) bool {
 
 func AuthMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		authorization := c.GetHeader("Authorization")
-		token := strings.Replace(authorization, "Bearer ", "", 1)
-		if !contains(conf.Conf.AccessTokens, token) {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			c.Abort()
-			return
-		}
+		// authorization := c.GetHeader("Authorization")
+		// token := strings.Replace(authorization, "Bearer ", "", 1)
+		// if !contains(conf.Conf.AccessTokens, token) {
+		// 	c.JSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
+		// 	c.Abort()
+		// 	return
+		// }
 		c.Next()
 	}
 }
