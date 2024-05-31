@@ -7,6 +7,8 @@
 
 请注意，目前**仅限 Poe 订阅者访问 API 密钥**。
 
+poe 订阅者获取API key地址：[https://poe.com/api_key](https://poe.com/api_key)
+
 ## 安装
 
 将此存储库克隆到本地机器：
