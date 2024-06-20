@@ -39,7 +39,7 @@ python external/api.py # 运行在端口 5100
 
 构建并启动 Go 后端：
 
-``````
+```
 go build
 chmod +x poe-openai-proxy
 ./poe-openai-proxy
