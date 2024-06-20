@@ -47,14 +47,14 @@ chmod +x poe-openai-proxy
 
 ### Docker 支持
 
-如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。
+如果您想使用 Docker，只需在按照上述说明创建 `config.toml` 后运行 `docker-compose up -d`。
 
 ## 使用
 
 请查看 [OpenAI 文档](https://platform.openai.com/docs/api-reference/chat/create) 以获取有关如何使用 ChatGPT API 的更多详细信息。
 
-只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。
-> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）
+只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。
+> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）
 
 支持的路由：
 
