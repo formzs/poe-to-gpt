@@ -5,7 +5,7 @@
 
 项目中引用项目链接： [[https://github.com/juzeon/poe-openai-proxyhttps://github.com/juzeon/poe-openai-proxy]](https://github.com/juzeon/poe-openai-proxy)
 
-请注意，目前****仅限 Poe 订阅者访问 API 密钥**。
+请注意，目前**仅限 Poe 订阅者访问 API 密钥**。
 
 poe 订阅者获取API key地址：[[https://poe.com/api_keyhttps://poe.com/api_key]](https://poe.com/api_key)
 
@@ -21,7 +21,7 @@ cd poe-gpt-api/cd poe-gpt-api/
 从 requirements.txt 安装依赖项：
 
 ```
-pip install -r external/requirements.txtpip install -r external/requirements.txt
+pip install -r external/requirements.txt
 ```
 
 在项目的根目录中创建配置文件。指令已写在注释中：
@@ -31,7 +31,7 @@ cp config.example.toml config.toml
 vim config.toml
 ```
 
-启动 Python 后端 `poe-apipoe-api``：启动 Python 后端 ``poe-api``：启动 Python 后端 ``poe-api``：启动 Python 后端 ``poe-api`：
+启动 Python 后端 `poe-api`：
 
 ```
 python external/api.py # 运行在端口 5100
