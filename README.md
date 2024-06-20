@@ -16,7 +16,7 @@ The location to obtain the API key:[https://poe.com/api_key](https://poe.com/api
 Clone this repository to your local machine:
 
 ```
-git clone https://github.com/formzs/poe-gpt-api.git
+git clone https://github.com/formzs/poe-to-gpt.git
 cd poe-gpt-api/
 ```
 
