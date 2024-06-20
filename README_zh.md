@@ -13,29 +13,29 @@ poe 订阅者获取API key地址：[[https://poe.com/api_keyhttps://poe.com/api_
 
 将此存储库克隆到本地机器：
 
-``````
+```
 git clone https://github.com/formzs/poe-to-gpt.git
 cd poe-gpt-api/cd poe-gpt-api/
-````````````
+```
 
 从 requirements.txt 安装依赖项：
 
-``````
+```
 pip install -r external/requirements.txtpip install -r external/requirements.txt
-````````````
+```
 
 在项目的根目录中创建配置文件。指令已写在注释中：
 
-``````
+```
 cp config.example.toml config.toml
 vim config.toml
-````````````
+```
 
 启动 Python 后端 `poe-apipoe-api``：启动 Python 后端 ``poe-api``：启动 Python 后端 ``poe-api``：启动 Python 后端 ``poe-api`：
 
-``````
+```
 python external/api.py # 运行在端口 5100
-````````````
+```
 
 构建并启动 Go 后端：
 
