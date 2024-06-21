@@ -59,10 +59,10 @@ async def stream_get_responses(api_key, prompt, bot):
         yield "Not supported by this Model"
 
 
-def add_token(token: str):
+async def add_token(token: str):
     if token not in client_dict:
         try:
-            ret = asyncio.run(get_responses(token, "Please return “OK”", "Assistant"))
+            ret = await get_responses(token, "Please return “OK”", "Assistant")
             if ret == "OK":
                 client_dict[token] = token
                 return "ok"
@@ -77,12 +77,12 @@ def add_token(token: str):
 
 @app.post("/add_token")
 async def add_token_endpoint(token: str = Form(...)):
-    return add_token(token)
+    return await add_token(token)
 
 
 @app.post("/ask")
 async def ask(token: str = Form(...), bot: str = Form(...), content: str = Form(...)):
-    add_token(token)
+    await add_token(token)
     try:
         return await get_responses(token, content, bot)
     except Exception as e:
@@ -98,7 +98,7 @@ async def websocket_endpoint(websocket: WebSocket):
         token = await websocket.receive_text()
         bot = await websocket.receive_text()
         content = await websocket.receive_text()
-        add_token(token)
+        await add_token(token)
         async for ret in stream_get_responses(token, content, bot):
             await websocket.send_text(ret)
 
