@@ -90,6 +90,14 @@ Other parameters will be ignored.
 
 "gpt-4-turbo-preview" = "Claude-3-Opus"
 
+"Claude-3.5-Sonnet" = "Claude-3.5-Sonnet"
+
+"Claude-3-Sonnet" = "Claude-3-Sonnet"
+
+"Claude-3-Haiku" = "Claude-3-Haiku"
+
+"Llama-3-70b-Groq" = "Llama-3-70b-Groq"
+
 "Gemini-1.5-Pro"="Gemini-1.5-Pro"
 
 "Gemini-1.5-Pro-128k"="Gemini-1.5-Pro-128k"

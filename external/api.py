@@ -2,14 +2,10 @@ import toml
 import os
 import sys
 import logging
-import json
-import string
-import re
-
 import uvicorn
-from fastapi import FastAPI, Request, WebSocket, Form
+from httpx import AsyncClient
+from fastapi import FastAPI, WebSocket, Form
 from fastapi.responses import JSONResponse
-import asyncio
 from fastapi_poe.types import ProtocolMessage
 from fastapi_poe.client import get_bot_response, get_final_response, QueryRequest
 
@@ -17,7 +13,7 @@ file_path = os.path.abspath(sys.argv[0])
 file_dir = os.path.dirname(file_path)
 config_path = os.path.join(file_dir, "..", "config.toml")
 config = toml.load(config_path)
-proxy = config["proxy"]
+proxy = AsyncClient(proxies=config["proxy"])
 timeout = config["api-timeout"] or config["timeout"] or 7
 
 logging.basicConfig(level=logging.DEBUG)
@@ -26,7 +22,9 @@ app = FastAPI()
 
 client_dict = {}
 
-bot_names = {"Assistant", "ChatGPT-16k", "GPT-4", "GPT-4o", "GPT-4-128k", "Claude-3-Opus", "commandrplus", "Gemini-1.5-Pro", "Gemini-1.5-Pro-128k", "Gemini-1.5-Pro-1M", "DALL-E-3", "StableDiffusionXL"}
+bot_names = {"Assistant", "ChatGPT-16k", "GPT-4", "GPT-4o", "GPT-4-128k", "Claude-3-Opus", "Claude-3.5-Sonnet",
+             "Claude-3-Sonnet", "Claude-3-Haiku", "Llama-3-70b-Groq", "Gemini-1.5-Pro", "Gemini-1.5-Pro-128k",
+             "Gemini-1.5-Pro-1M", "DALL-E-3", "StableDiffusionXL"}
 
 
 async def get_responses(api_key, prompt, bot):
@@ -42,7 +40,7 @@ async def get_responses(api_key, prompt, bot):
             type="query",
             **additional_params
         )
-        return await get_final_response(query, bot_name=bot, api_key=api_key)
+        return await get_final_response(query, bot_name=bot, api_key=api_key, session=proxy)
     else:
         return "Not supported by this Model"
 
@@ -51,7 +49,7 @@ async def stream_get_responses(api_key, prompt, bot):
     if bot in bot_names:
         message = ProtocolMessage(role="user", content=prompt)
         try:
-            async for partial in get_bot_response(messages=[message], bot_name=bot, api_key=api_key):
+            async for partial in get_bot_response(messages=[message], bot_name=bot, api_key=api_key, session=proxy):
                 yield partial.text
         except GeneratorExit:
             return
