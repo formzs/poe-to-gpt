@@ -73,7 +73,7 @@ chmod +x poe-openai-proxy
 
 其他参数将被忽略。
 
-**在 Chatbox和Lobe-chat 中已成功测试。**
+**在 Chatbox和Lobe-chat 中已成功测试。（注：nextchat未测试！！！^_^）**
 
 ## 从 poe 使用的机器人名称映射。
 "gpt-3.5-turbo-16k" = "ChatGPT-16k"
