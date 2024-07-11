@@ -15,7 +15,7 @@ poe 订阅者获取API key地址：[https://poe.com/api_key](https://poe.com/api
 
 ```
 git clone https://github.com/formzs/poe-to-gpt.git
-cd poe-gpt-api/cd poe-gpt-api/
+cd poe-gpt-api/
 ```
 
 从 requirements.txt 安装依赖项：
