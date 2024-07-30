@@ -22,8 +22,8 @@ app = FastAPI()
 
 client_dict = {}
 
-bot_names = {"Assistant", "ChatGPT-16k", "GPT-4", "GPT-4o", "GPT-4-128k", "Claude-3-Opus", "Claude-3.5-Sonnet",
-             "Claude-3-Sonnet", "Claude-3-Haiku", "Llama-3-70b-Groq", "Gemini-1.5-Pro", "Gemini-1.5-Pro-128k",
+bot_names = {"Assistant", "ChatGPT-16k", "GPT-4", "GPT-4o", "GPT-4o-Mini", "GPT-4-128k", "Claude-3-Opus", "Claude-3.5-Sonnet",
+             "Claude-3-Sonnet", "Claude-3-Haiku", "Llama-3.1-405B-T", "Llama-3.1-405B-FW-128k", "Llama-3.1-70B-T", "Llama-3.1-70B-FW-128k", "Llama-3-70b-Groq", "Gemini-1.5-Pro", "Gemini-1.5-Pro-128k",
              "Gemini-1.5-Pro-1M", "DALL-E-3", "StableDiffusionXL"}
 
 

@@ -84,9 +84,19 @@ chmod +x poe-openai-proxy
 
 "gpt-4o" = "GPT-4o"
 
+"gpt-4o-mini" = "GPT-4o-Mini"
+
 "gpt-4-vision-preview" = "GPT-4-128k"
 
 "gpt-4-turbo-preview" = "Claude-3-Opus"
+
+"Llama-3.1-405B-T" = "Llama-3.1-405B-T"
+
+"Llama-3.1-405B-FW-128k" = "Llama-3.1-405B-FW-128k"
+
+"Llama-3.1-70B-T" = "Llama-3.1-70B-T"
+
+"Llama-3.1-70B-FW-128k" = "Llama-3.1-70B-FW-128k"
 
 "Claude-3.5-Sonnet" = "Claude-3.5-Sonnet"
 
