@@ -24,7 +24,8 @@ client_dict = {}
 
 bot_names = {"Assistant", "ChatGPT-16k", "GPT-4", "GPT-4o", "GPT-4o-Mini", "GPT-4-128k", "Claude-3-Opus", "Claude-3.5-Sonnet",
              "Claude-3-Sonnet", "Claude-3-Haiku", "Llama-3.1-405B-T", "Llama-3.1-405B-FW-128k", "Llama-3.1-70B-T", "Llama-3.1-70B-FW-128k", "Llama-3-70b-Groq", "Gemini-1.5-Pro", "Gemini-1.5-Pro-128k",
-             "Gemini-1.5-Pro-1M", "DALL-E-3", "StableDiffusionXL"}
+             "Gemini-1.5-Pro-1M", "DALL-E-3", "StableDiffusionXL", "gpt-3.5-turbo-16k", "gpt-3.5-turbo", "gpt-4-vision-preview", "gpt-4-turbo-preview", "ChatGPT-4o-Latest", "Claude-3.5-Sonnet-200k", 
+             "Claude-3-Sonnet-200k", "Gemini-1.5-Pro-2M", "Gemini-1.5-Pro-Search", "Gemini-1.5-Flash", "Gemini-1.5-Flash-128k", "Gemini-1.5-Flash-Search", "Qwen2-72B-Instruct-T", "FLUX-dev", "FLUX-pro", "FLUX-pro-1.1"}
 
 
 async def get_responses(api_key, prompt, bot):

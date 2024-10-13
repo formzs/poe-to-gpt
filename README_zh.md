@@ -106,15 +106,37 @@ chmod +x poe-openai-proxy
 
 "Llama-3-70b-Groq" = "Llama-3-70b-Groq"
 
-"Gemini-1.5-Pro"="Gemini-1.5-Pro"
+"Gemini-1.5-Pro" = "Gemini-1.5-Pro"
 
-"Gemini-1.5-Pro-128k"="Gemini-1.5-Pro-128k"
+"Gemini-1.5-Pro-128k" = "Gemini-1.5-Pro-128k"
 
-"Gemini-1.5-Pro-1M"="Gemini-1.5-Pro-1M"
+"DALL-E-3" = "DALL-E-3"
 
-"DALL-E-3"="DALL-E-3"
+"StableDiffusionXL" = "StableDiffusionXL"
 
-"StableDiffusionXL"="StableDiffusionXL"
+"ChatGPT-4o-Latest" = "ChatGPT-4o-Latest"
+
+"Claude-3.5-Sonnet-200k" = "Claude-3.5-Sonnet-200k"
+
+"Claude-3-Sonnet-200k" = "Claude-3-Sonnet-200k"
+
+"Gemini-1.5-Pro-2M" = "Gemini-1.5-Pro-2M"
+
+"Gemini-1.5-Pro-Search" = "Gemini-1.5-Pro-Search"
+
+"Gemini-1.5-Flash" = "Gemini-1.5-Flash"
+
+"Gemini-1.5-Flash-128k" = "Gemini-1.5-Flash-128k"
+
+"Gemini-1.5-Flash-Search" = "Gemini-1.5-Flash-Search"
+
+"Qwen2-72B-Instruct-T" = "Qwen2-72B-Instruct-T"
+
+"FLUX-dev" = "FLUX-dev"
+
+"FLUX-pro" = "FLUX-pro"
+
+"FLUX-pro-1.1" = "FLUX-pro-1.1"
 
 ## 鸣谢
 - https://github.com/juzeon/poe-openai-proxy
