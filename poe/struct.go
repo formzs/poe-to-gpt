@@ -6,9 +6,10 @@ type Message struct {
 	Name    string `json:"name"`
 }
 type CompletionRequest struct {
-	Model    string    `json:"model"`
-	Messages []Message `json:"messages"`
-	Stream   bool      `json:"stream"`
+	Model       string    `json:"model"`
+	Messages    []Message `json:"messages"`
+	Stream      bool      `json:"stream"`
+	Temperature float64   `json:"temperature"`
 }
 type CompletionResponse struct {
 	ID      string   `json:"id"`

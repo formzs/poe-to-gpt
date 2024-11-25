@@ -35,7 +35,36 @@ func AuthMiddleware() gin.HandlerFunc {
 	}
 }
 
+func LoggerMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		startTime := time.Now()
+
+		var bodyBytes []byte
+		if c.Request.Body != nil {
+			bodyBytes, _ = io.ReadAll(c.Request.Body)
+			c.Request.Body = io.NopCloser(strings.NewReader(string(bodyBytes)))
+		}
+
+		util.Logger.Info("Incoming Request",
+			"timestamp", startTime.Format(time.RFC3339),
+			"method", c.Request.Method,
+			"path", c.Request.URL.Path,
+			"headers", c.Request.Header,
+			"body", string(bodyBytes),
+			"client_ip", c.ClientIP(),
+		)
+
+		c.Next()
+
+		util.Logger.Info("Request Completed",
+			"status", c.Writer.Status(),
+			"duration", time.Since(startTime).String(),
+		)
+	}
+}
+
 func Setup(engine *gin.Engine) {
+	engine.Use(LoggerMiddleware())
 	getModels := func(c *gin.Context) {
 		SetCORS(c)
 		c.JSON(http.StatusOK, conf.Models)
@@ -45,24 +74,72 @@ func Setup(engine *gin.Engine) {
 	engine.GET("/v1/models", AuthMiddleware(), getModels)
 
 	postCompletions := func(c *gin.Context) {
-		//SetCORS(c)
-		var req poe.CompletionRequest
-		if err := c.ShouldBindJSON(&req); err != nil {
-			c.JSON(400, "bad request")
+		SetCORS(c)
+		
+		// 读取请求体
+		var rawBody map[string]interface{}
+		if err := c.ShouldBindJSON(&rawBody); err != nil {
+			c.JSON(400, gin.H{"error": "Invalid request body"})
 			return
 		}
-		for _, msg := range req.Messages {
-			if msg.Role != "system" && msg.Role != "user" && msg.Role != "assistant" {
-				c.JSON(400, "role of message validation failed: "+msg.Role)
-				return
+
+		// 构造标准请求结构
+		req := poe.CompletionRequest{
+			Model: rawBody["model"].(string),
+			Messages: make([]poe.Message, 0),
+		}
+
+		// 处理stream选项
+		if stream, ok := rawBody["stream"].(bool); ok {
+			req.Stream = stream
+		}
+
+		// 处理temperature
+		if temp, ok := rawBody["temperature"].(float64); ok {
+			req.Temperature = temp
+		}
+
+		// 处理messages
+		if msgs, ok := rawBody["messages"].([]interface{}); ok {
+			for _, msg := range msgs {
+				if msgMap, ok := msg.(map[string]interface{}); ok {
+					message := poe.Message{
+						Role: msgMap["role"].(string),
+					}
+					
+					// 处理content字段，可能是string或[]interface{}
+					if content, ok := msgMap["content"].(string); ok {
+						message.Content = content
+					} else if contentArr, ok := msgMap["content"].([]interface{}); ok {
+						// 将数组内容合并为字符串
+						contentStr := ""
+						for _, item := range contentArr {
+							if itemMap, ok := item.(map[string]interface{}); ok {
+								if text, ok := itemMap["text"].(string); ok {
+									contentStr += text + "\n"
+								}
+							}
+						}
+						message.Content = contentStr
+					}
+					
+					req.Messages = append(req.Messages, message)
+				}
 			}
 		}
+
+		// 获取客户端
 		client, err := poe.GetClient()
 		if err != nil {
-			c.JSON(500, err)
+			c.JSON(500, err.Error())
+			return
+		}
+		if client == nil {
+			c.JSON(500, "no available client")
 			return
 		}
 		defer client.Release()
+
 		if req.Stream {
 			util.Logger.Info("stream using client: " + client.Token)
 			Stream(c, req, client)
