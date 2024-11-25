@@ -1,9 +1,10 @@
 package conf
 
 import (
-	"github.com/pelletier/go-toml/v2"
 	"os"
 	"strings"
+
+	"github.com/pelletier/go-toml/v2"
 )
 
 type ConfigStruct struct {
@@ -57,21 +58,38 @@ func Setup() {
 	}
 	if Conf.Bot == nil {
 		Conf.Bot = map[string]string{
-			"gpt-3.5-turbo-16k":    "ChatGPT-16k",
-			"gpt-3.5-turbo":        "ChatGPT-16k",
-			"gpt-4":                "GPT-4",
-			"gpt-4o":               "GPT-4o",
-			"gpt-4-vision-preview": "GPT-4-128k",
-			"gpt-4-turbo-preview":  "Claude-3-Opus",
-			"Claude-3.5-Sonnet":    "Claude-3.5-Sonnet",
-			"Claude-3-Sonnet":      "Claude-3-Sonnet",
-			"Claude-3-Haiku":       "Claude-3-Haiku",
-			"Llama-3-70b-Groq":     "Llama-3-70b-Groq",
-			"Gemini-1.5-Pro":       "Gemini-1.5-Pro",
-			"Gemini-1.5-Pro-128k":  "Gemini-1.5-Pro-128k",
-			"Gemini-1.5-Pro-1M":    "Gemini-1.5-Pro-1M",
-			"DALL-E-3":             "DALL-E-3",
-			"StableDiffusionXL":    "StableDiffusionXL",
+			"gpt-3.5-turbo-16k":       "ChatGPT-16k",
+			"gpt-3.5-turbo":           "ChatGPT-16k",
+			"gpt-4":                   "GPT-4",
+			"gpt-4o":                  "GPT-4o",
+			"gpt-4o-mini":             "GPT-4o-Mini",
+			"gpt-4-vision-preview":    "GPT-4-128k",
+			"gpt-4-turbo-preview":     "Claude-3-Opus",
+			"ChatGPT-4o-Latest":       "ChatGPT-4o-Latest",
+			"Llama-3-70b-Groq":        "Llama-3-70b-Groq",
+			"Llama-3.1-405B-T":        "Llama-3.1-405B-T",
+			"Llama-3.1-405B-FW-128k":  "Llama-3.1-405B-FW-128k",
+			"Llama-3.1-70B-T":         "Llama-3.1-70B-T",
+			"Llama-3.1-70B-FW-128k":   "Llama-3.1-70B-FW-128k",
+			"Claude-3.5-Sonnet":       "Claude-3.5-Sonnet",
+			"Claude-3.5-Sonnet-200k":  "Claude-3.5-Sonnet-200k",
+			"Claude-3-Sonnet":         "Claude-3-Sonnet",
+			"Claude-3-Sonnet-200k":    "Claude-3-Sonnet-200k",
+			"Claude-3-Haiku":          "Claude-3-Haiku",
+			"Claude-3-Opus":           "Claude-3-Opus",
+			"Gemini-1.5-Pro":          "Gemini-1.5-Pro",
+			"Gemini-1.5-Pro-128k":     "Gemini-1.5-Pro-128k",
+			"Gemini-1.5-Pro-2M":       "Gemini-1.5-Pro-2M",
+			"Gemini-1.5-Pro-Search":   "Gemini-1.5-Pro-Search",
+			"Gemini-1.5-Flash":        "Gemini-1.5-Flash",
+			"Gemini-1.5-Flash-128k":   "Gemini-1.5-Flash-128k",
+			"Gemini-1.5-Flash-Search": "Gemini-1.5-Flash-Search",
+			"Qwen2-72B-Instruct-T":    "Qwen2-72B-Instruct-T",
+			"DALL-E-3":                "DALL-E-3",
+			"StableDiffusionXL":       "StableDiffusionXL",
+			"FLUX-dev":                "FLUX-dev",
+			"FLUX-pro":                "FLUX-pro",
+			"FLUX-pro-1.1":            "FLUX-pro-1.1",
 		}
 	}
 

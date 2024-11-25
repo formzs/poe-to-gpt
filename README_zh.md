@@ -3,11 +3,11 @@
 
 这是一个工具，将 Poe官方网站提供的 API 密钥转换为兼容的 OpenAI API 密钥。它使 Poe API 密钥可以与依赖于 OpenAI API 密钥的工具一起使用。开发此工具的主要原因是为中国大陆用户提供便利和稳定性，因为他们发现订阅和充值 OpenAI API 不太方便。
 
-项目中引用项目链接： [[https://github.com/juzeon/poe-openai-proxyhttps://github.com/juzeon/poe-openai-proxy]](https://github.com/juzeon/poe-openai-proxy)
+项目中引用项目链接： [https://github.com/juzeon/poe-openai-proxy](https://github.com/juzeon/poe-openai-proxy)
 
 请注意，目前**仅限 Poe 订阅者访问 API 密钥**。
 
-poe 订阅者获取API key地址：[[https://poe.com/api_keyhttps://poe.com/api_key]](https://poe.com/api_key)
+poe 订阅者获取API key地址：[https://poe.com/api_key](https://poe.com/api_key)
 
 #### 安装
 
@@ -15,7 +15,7 @@ poe 订阅者获取API key地址：[[https://poe.com/api_keyhttps://poe.com/api_
 
 ```
 git clone https://github.com/formzs/poe-to-gpt.git
-cd poe-gpt-api/cd poe-gpt-api/
+cd poe-gpt-api/
 ```
 
 从 requirements.txt 安装依赖项：
@@ -73,7 +73,7 @@ chmod +x poe-openai-proxy
 
 其他参数将被忽略。
 
-**在 Chatbox和Lobe-chat 中已成功测试。**
+**在 Chatbox和Lobe-chat 中已成功测试。（注：nextchat未测试！！！^_^）**
 
 ## 从 poe 使用的机器人名称映射。
 "gpt-3.5-turbo-16k" = "ChatGPT-16k"
@@ -84,9 +84,19 @@ chmod +x poe-openai-proxy
 
 "gpt-4o" = "GPT-4o"
 
+"gpt-4o-mini" = "GPT-4o-Mini"
+
 "gpt-4-vision-preview" = "GPT-4-128k"
 
 "gpt-4-turbo-preview" = "Claude-3-Opus"
+
+"Llama-3.1-405B-T" = "Llama-3.1-405B-T"
+
+"Llama-3.1-405B-FW-128k" = "Llama-3.1-405B-FW-128k"
+
+"Llama-3.1-70B-T" = "Llama-3.1-70B-T"
+
+"Llama-3.1-70B-FW-128k" = "Llama-3.1-70B-FW-128k"
 
 "Claude-3.5-Sonnet" = "Claude-3.5-Sonnet"
 
@@ -96,15 +106,37 @@ chmod +x poe-openai-proxy
 
 "Llama-3-70b-Groq" = "Llama-3-70b-Groq"
 
-"Gemini-1.5-Pro"="Gemini-1.5-Pro"
+"Gemini-1.5-Pro" = "Gemini-1.5-Pro"
 
-"Gemini-1.5-Pro-128k"="Gemini-1.5-Pro-128k"
+"Gemini-1.5-Pro-128k" = "Gemini-1.5-Pro-128k"
 
-"Gemini-1.5-Pro-1M"="Gemini-1.5-Pro-1M"
+"DALL-E-3" = "DALL-E-3"
 
-"DALL-E-3"="DALL-E-3"
+"StableDiffusionXL" = "StableDiffusionXL"
 
-"StableDiffusionXL"="StableDiffusionXL"
+"ChatGPT-4o-Latest" = "ChatGPT-4o-Latest"
+
+"Claude-3.5-Sonnet-200k" = "Claude-3.5-Sonnet-200k"
+
+"Claude-3-Sonnet-200k" = "Claude-3-Sonnet-200k"
+
+"Gemini-1.5-Pro-2M" = "Gemini-1.5-Pro-2M"
+
+"Gemini-1.5-Pro-Search" = "Gemini-1.5-Pro-Search"
+
+"Gemini-1.5-Flash" = "Gemini-1.5-Flash"
+
+"Gemini-1.5-Flash-128k" = "Gemini-1.5-Flash-128k"
+
+"Gemini-1.5-Flash-Search" = "Gemini-1.5-Flash-Search"
+
+"Qwen2-72B-Instruct-T" = "Qwen2-72B-Instruct-T"
+
+"FLUX-dev" = "FLUX-dev"
+
+"FLUX-pro" = "FLUX-pro"
+
+"FLUX-pro-1.1" = "FLUX-pro-1.1"
 
 ## 鸣谢
 - https://github.com/juzeon/poe-openai-proxy

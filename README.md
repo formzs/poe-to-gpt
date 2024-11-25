@@ -86,9 +86,19 @@ Other parameters will be ignored.
 
 "gpt-4o" = "GPT-4o"
 
+"gpt-4o-mini" = "GPT-4o-Mini"
+
 "gpt-4-vision-preview" = "GPT-4-128k"
 
 "gpt-4-turbo-preview" = "Claude-3-Opus"
+
+"Llama-3.1-405B-T" = "Llama-3.1-405B-T"
+
+"Llama-3.1-405B-FW-128k" = "Llama-3.1-405B-FW-128k"
+
+"Llama-3.1-70B-T" = "Llama-3.1-70B-T"
+
+"Llama-3.1-70B-FW-128k" = "Llama-3.1-70B-FW-128k"
 
 "Claude-3.5-Sonnet" = "Claude-3.5-Sonnet"
 
@@ -98,15 +108,38 @@ Other parameters will be ignored.
 
 "Llama-3-70b-Groq" = "Llama-3-70b-Groq"
 
-"Gemini-1.5-Pro"="Gemini-1.5-Pro"
+"Gemini-1.5-Pro" = "Gemini-1.5-Pro"
 
-"Gemini-1.5-Pro-128k"="Gemini-1.5-Pro-128k"
+"Gemini-1.5-Pro-128k" = "Gemini-1.5-Pro-128k"
 
-"Gemini-1.5-Pro-1M"="Gemini-1.5-Pro-1M"
+"DALL-E-3" = "DALL-E-3"
 
-"DALL-E-3"="DALL-E-3"
+"StableDiffusionXL" = "StableDiffusionXL"
 
-"StableDiffusionXL"="StableDiffusionXL"
+"ChatGPT-4o-Latest" = "ChatGPT-4o-Latest"
+
+"Claude-3.5-Sonnet-200k" = "Claude-3.5-Sonnet-200k"
+
+"Claude-3-Sonnet-200k" = "Claude-3-Sonnet-200k"
+
+"Gemini-1.5-Pro-2M" = "Gemini-1.5-Pro-2M"
+
+"Gemini-1.5-Pro-Search" = "Gemini-1.5-Pro-Search"
+
+"Gemini-1.5-Flash" = "Gemini-1.5-Flash"
+
+"Gemini-1.5-Flash-128k" = "Gemini-1.5-Flash-128k"
+
+"Gemini-1.5-Flash-Search" = "Gemini-1.5-Flash-Search"
+
+"Qwen2-72B-Instruct-T" = "Qwen2-72B-Instruct-T"
+
+"FLUX-dev" = "FLUX-dev"
+
+"FLUX-pro" = "FLUX-pro"
+
+"FLUX-pro-1.1" = "FLUX-pro-1.1"
+
 
 ## Credit
 - https://github.com/juzeon/poe-openai-proxy
