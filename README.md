@@ -17,7 +17,7 @@ Clone this repository to your local machine:
 
 ```
 git clone https://github.com/formzs/poe-to-gpt.git
-cd poe-gpt-api/
+cd poe-to-gpt/
 ```
 
 Install dependencies from requirements.txt:
