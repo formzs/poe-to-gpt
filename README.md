@@ -49,7 +49,7 @@ chmod +x poe-openai-proxy
 
 ### Docker support
 
-If you would like to use docker, just run `docker-compose up -d` after creating `config.toml` according to the instructions above.
+If you would like to use docker, just run `docker-compose up -d` after creating `config.toml` according to the instructions above.Please change the line of `gateway = "http://localhost:5100"` in `config.toml` to `gateway = "http://external:5100"` when starting docker. 
 
 ## Usage
 
