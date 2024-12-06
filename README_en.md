@@ -7,6 +7,10 @@ Please note that **API keys are currently only available to Poe subscribers**.
 
 Poe subscribers can get their API key at: [https://poe.com/api_key](https://poe.com/api_key)
 
+**The new version simplifies the procedures and deployment methods.**
+
+[中文文档](https://github.com/formzs/poe-to-gpt/blob/main/README.md)
+
 #### Installation
 
 Clone this repository to your local machine:
