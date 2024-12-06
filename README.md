@@ -7,6 +7,10 @@
 
 poe 订阅者获取API key地址：[https://poe.com/api_key](https://poe.com/api_key)
 
+**新版本简化了程序和部署方式。**
+
+[English Document](https://github.com/formzs/poe-to-gpt/blob/main/README_en.md)
+
 #### 安装
 
 将此存储库克隆到本地机器：
