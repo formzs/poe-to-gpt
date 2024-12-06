@@ -1,149 +1,256 @@
-# poe-gpt-api poe-gpt-api
-A converter that can convert the API Token provided by POE into the API format of OpenAI, allowing other applications dependent on the **OpenAI API** to use POE's API.
+## poe-to-gpt
+一个转换器，可以将 POE 提供的 API 令牌转换为 OpenAI 的 API 格式，从而使依赖于 OpenAI API 的其他应用程序可以使用 POE 的 API。
 
-This is a tool that converts the API key provided by Poe (Poe.com) official website into a compatible OpenAI API key. It enables Poe API key to be used with tools that depend on OpenAI API key. The main reason for developing this tool is to provide convenience and stability for users in mainland China who find it inconvenient to subscribe to and recharge OpenAI API. 
+这是一个工具，将 Poe官方网站提供的 API 密钥转换为兼容的 OpenAI API 密钥。它使 Poe API 密钥可以与依赖于 OpenAI API 密钥的工具一起使用。开发此工具的主要原因是为中国大陆用户提供便利和稳定性，因为他们发现订阅和充值 OpenAI API 不太方便。
 
-Referenced the project at [https://github.com/juzeon/poe-openai-proxy](https://github.com/juzeon/poe-openai-proxy)
+请注意，目前**仅限 Poe 订阅者访问 API 密钥**。
 
-Note that access to an API key is currently limited to Poe subscribers to minimize abuse.
+poe 订阅者获取API key地址：[https://poe.com/api_key](https://poe.com/api_key)
 
-The location to obtain the API key:[https://poe.com/api_key](https://poe.com/api_key)
+#### 安装
 
-[中文文档](https://github.com/formzs/poe-to-gpt/blob/master/README_zh.md)
-
-## Installation
-
-Clone this repository to your local machine:
+将此存储库克隆到本地机器：
 
 ```
 git clone https://github.com/formzs/poe-to-gpt.git
 cd poe-to-gpt/
 ```
 
-Install dependencies from requirements.txt:
+从 requirements.txt 安装依赖项：
 
 ```
-pip install -r external/requirements.txt
+pip install -r requirements.txt
 ```
 
-Create the configuration file in the root folder of the project. Instructions are written in the comments:
+在项目的根目录中创建配置文件。指令已写在注释中：
 
 ```
 cp config.example.toml config.toml
 vim config.toml
 ```
 
-Start the Python backend for `poe-api`:
+启动项目：
 
 ```
-python external/api.py # Running on port 5100
+# 默认运行在端口 3700
+python app.py
 ```
 
-Build and start the Go backend:
-
+#### Docker （推荐）
 ```
-go build
-chmod +x poe-openai-proxy
-./poe-openai-proxy
+cp config.example.toml config.toml
+vim config.toml
+# 构建并启动容器，默认运行在端口 3700
+docker-compose up -d --build
 ```
 
-### Docker support
+### 使用
 
-If you would like to use docker, just run `docker-compose up -d` after creating `config.toml` according to the instructions above.Please change the line of `gateway = "http://localhost:5100"` in `config.toml` to `gateway = "http://external:5100"` when starting docker. 
+请查看 [OpenAI 文档](https://platform.openai.com/docs/api-reference/chat/create) 以获取有关如何使用 ChatGPT API 的更多详细信息。
 
-## Usage
+只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。
+> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）
 
-See [OpenAI Document](https://platform.openai.com/docs/api-reference/chat/create) for more details on how to use the ChatGPT API.
-
-Just replace `https://api.openai.com` in your code with `http://localhost:3700` and you're good to go.
-> Be sure to enter the custom API key(The corresponding field in `config.toml` is `accessTokens`)
-
-Supported routes:
-
-- /models
+支持的路由：
 - /chat/completions
-- /v1/models
 - /v1/chat/completions
 
-Supported parameters:
+## 支持的模型参数（对应poe上机器人名称）。
+> 传参可忽略大小写
 
-| Parameter | Note                                                         |
-| --------- | ------------------------------------------------------------ |
-| model     | See `[bot]` section of `config.example.toml`. Model names are mapped to bot nicknames. |
-| messages  | You can use this as in the official API, except for `name`.  |
-| stream    | You can use this as in the official API.                     |
+Assistant
 
-Other parameters will be ignored.
+GPT-3.5-Turbo
 
-**Successfully tested in the Chatbox and Lobe-chat.**
-
-## The bot name map to use from poe.
-"gpt-3.5-turbo-16k" = "ChatGPT-16k"
-
-"gpt-3.5-turbo" = "ChatGPT-16k"
-
-"gpt-4" = "GPT-4"
-
-"gpt-4o" = "GPT-4o"
-
-"gpt-4o-mini" = "GPT-4o-Mini"
-
-"gpt-4-vision-preview" = "GPT-4-128k"
-
-"gpt-4-turbo-preview" = "Claude-3-Opus"
-
-"Llama-3.1-405B-T" = "Llama-3.1-405B-T"
-
-"Llama-3.1-405B-FW-128k" = "Llama-3.1-405B-FW-128k"
-
-"Llama-3.1-70B-T" = "Llama-3.1-70B-T"
-
-"Llama-3.1-70B-FW-128k" = "Llama-3.1-70B-FW-128k"
-
-"Claude-3.5-Sonnet" = "Claude-3.5-Sonnet"
-
-"Claude-3-Sonnet" = "Claude-3-Sonnet"
-
-"Claude-3-Haiku" = "Claude-3-Haiku"
-
-"Llama-3-70b-Groq" = "Llama-3-70b-Groq"
-
-"Gemini-1.5-Pro" = "Gemini-1.5-Pro"
-
-"Gemini-1.5-Pro-128k" = "Gemini-1.5-Pro-128k"
-
-"DALL-E-3" = "DALL-E-3"
-
-"StableDiffusionXL" = "StableDiffusionXL"
-
-"ChatGPT-4o-Latest" = "ChatGPT-4o-Latest"
-
-"Claude-3.5-Sonnet-200k" = "Claude-3.5-Sonnet-200k"
-
-"Claude-3-Sonnet-200k" = "Claude-3-Sonnet-200k"
-
-"Gemini-1.5-Pro-2M" = "Gemini-1.5-Pro-2M"
-
-"Gemini-1.5-Pro-Search" = "Gemini-1.5-Pro-Search"
-
-"Gemini-1.5-Flash" = "Gemini-1.5-Flash"
-
-"Gemini-1.5-Flash-128k" = "Gemini-1.5-Flash-128k"
-
-"Gemini-1.5-Flash-Search" = "Gemini-1.5-Flash-Search"
-
-"Qwen2-72B-Instruct-T" = "Qwen2-72B-Instruct-T"
-
-"FLUX-dev" = "FLUX-dev"
-
-"FLUX-pro" = "FLUX-pro"
-
-"FLUX-pro-1.1" = "FLUX-pro-1.1"
+GPT-3.5-Turbo-16k
 
 
-## Credit
+GPT-3.5-Turbo-lnstruct
+
+
+GPT-4o
+
+
+GPT-4o-128k
+
+
+GPT-4o-Mini
+
+
+GPT-4o-Mini-128k
+
+
+ChatGPT-4o-Latest
+
+
+ChatGPT-4o-Latest-128k
+
+
+GPT-4o-Aug-128k
+
+
+o1-mini
+
+
+o1-preview
+
+
+Claude-3.5-Sonnet
+
+
+Claude-3.5-Sonnet-200k
+
+
+Claude-3.5-Haiku
+
+
+Claude-3.5-Haiku-200k
+
+
+Claude-3.5-Sonnet-June
+
+
+Claude-3.5-Sonnet-June-200k
+
+
+Claude-3-opus
+
+
+Claude-3-opus-200k
+
+
+Claude-3-Sonnet
+
+
+Claude-3-Sonnet-200k
+
+
+Claude-3-Haiku
+
+
+Claude-3-Haiku-200k
+
+
+Gemini-1.5-Pro
+
+
+Gemini-1.5-Pro-Search
+
+
+Gemini-1.5-Pro-128k
+
+
+Gemini-1.5-Pro-2M
+
+
+Gemini-1.5-Flash
+
+
+Gemini-1.5-Flash-Search
+
+
+Gemini-1.5-Flash-128k
+
+
+Gemini-1.5-Flash-1M
+
+
+Qwen-QwQ-32b-preview
+
+
+Qwen-2.5-Coder-32B-T
+
+
+Qwen-2.5-72B-T
+
+
+Llama-3.1-405B
+
+
+Llama-3.1-405B-T
+
+
+Llama-3.1-405B-FP16
+
+
+Llama-3.1-405B-FW-128k
+
+
+Llama-3.1-70B
+
+
+Llama-3.1-70B-FP16
+
+
+Llama-3.1-70B-T-128k
+
+
+Llama-3.1-70B-FW-128k
+
+
+Llama-3.1-8B
+
+
+Llama-3.1-8B-FP16
+
+
+Llama-3.1-8B-T-128k
+
+
+DALL-E-3
+
+
+StableDiffusionXL
+
+
+StableDiffusion3.5-T
+
+
+StableDiffusion3.5-L
+
+
+StableDiffusion3
+
+
+SD3-Turbo
+
+
+FLUX-pro
+
+
+FLUX-pro-1.1
+
+
+FLUX-pro-1.1-T
+
+
+FLUX-pro-1.1-ultra
+
+
+FLUX-schnell
+
+
+FLUX-dev
+
+
+Luma-Photon
+
+
+Luma-Photon-Flash
+
+
+Playground-v3
+
+
+Ideogram-v2
+
+
+Imagen3
+
+
+Imagen3-Fast
+
+
+## 鸣谢
 - https://github.com/juzeon/poe-openai-proxy
 - https://developer.poe.com/server-bots/accessing-other-bots-on-poe
-
-
-

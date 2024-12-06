@@ -1,0 +1,11 @@
+version: '3'
+
+services:
+  poe-to-gpt:
+    build: .
+    image: poe-to-gpt
+    ports:
+      - "3700:3700"
+    volumes:
+      - ./config.toml:/app/config.toml
+    restart: unless-stopped
