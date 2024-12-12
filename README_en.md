@@ -112,6 +112,8 @@ Claude-3-Haiku
 
 Claude-3-Haiku-200k
 
+Gemini-2.0-Flash
+
 Gemini-1.5-Pro
 
 Gemini-1.5-Pro-Search
@@ -127,6 +129,8 @@ Gemini-1.5-Flash-Search
 Gemini-1.5-Flash-128k
 
 Gemini-1.5-Flash-1M
+
+Grok-beta
 
 Qwen-QwQ-32b-preview
 
