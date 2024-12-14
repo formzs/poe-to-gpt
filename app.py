@@ -29,11 +29,11 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 # 初始化代理
-proxy = AsyncClient()
+proxy = None
 if not config.get("proxy"):
-    proxy.proxies = None
+    proxy = AsyncClient()
 else:
-    proxy.proxies = {"http://": config["proxy"], "https://": config["proxy"]} if config["proxy"] else None
+    proxy = AsyncClient(proxy=config.get("proxy"))
 
 # 获取访问令牌列表
 access_tokens = set(config.get("accessTokens", []))
