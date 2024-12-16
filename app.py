@@ -30,10 +30,11 @@ logger = logging.getLogger(__name__)
 
 # 初始化代理
 proxy = None
+timeout = config.get("timeout", 120)  # 默认120秒超时
 if not config.get("proxy"):
-    proxy = AsyncClient()
+    proxy = AsyncClient(timeout=timeout)
 else:
-    proxy = AsyncClient(proxy=config.get("proxy"))
+    proxy = AsyncClient(proxy=config.get("proxy"), timeout=timeout)
 
 # 获取访问令牌列表
 access_tokens = set(config.get("accessTokens", []))

@@ -10,3 +10,5 @@ accessTokens = ["your-access-token1","your-access-token2"]
 
 # The proxy that will be used to connect to poe.com. Leave it blank if you do not use a proxy
 proxy = ""
+
+timeout = 120  # 设置超时时间
