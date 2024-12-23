@@ -84,6 +84,8 @@ ChatGPT-4o-Latest-128k
 
 GPT-4o-Aug-128k
 
+o1
+
 o1-mini
 
 o1-preview
