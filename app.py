@@ -274,8 +274,9 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
             # 打印完整响应（限制长度）
             safe_response = {**response_data}
             if len(response) > 200:
-                safe_response["choices"][0]["message"]["content"] = response[:200] + "..."
-            logger.info(f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)}")
+                logger.info(f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)[:200]}...")
+            else:
+                logger.info(f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)}")
             return response_data
 
     except GeneratorExit:
