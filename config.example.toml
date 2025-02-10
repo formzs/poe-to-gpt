@@ -12,3 +12,13 @@ accessTokens = ["your-access-token1","your-access-token2"]
 proxy = ""
 
 timeout = 120  # 设置超时时间
+
+bot_names = [
+    "GPT-4o-Mini",
+    "GPT-3.5-Turbo",
+    "Claude-3.5-Sonnet",
+    "Claude-3-opus",
+    "Gemini-2.0-Pro",
+    "DeepSeek-R1",
+    "DALL-E-3"
+]
