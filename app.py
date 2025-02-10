@@ -204,26 +204,22 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
             import re
             async def response_generator():
                 total_response = ""
-                last_sent_base_content = None  # Track the last sent base content
-                elapsed_time_pattern = re.compile(r" \(\d+s elapsed\)$")  # Compile the regex pattern
+                last_sent_base_content = None
+                elapsed_time_pattern = re.compile(r" \(\d+s elapsed\)$")
 
                 try:
                     async for partial in get_bot_response(protocol_messages, bot_name=request.model, api_key=poe_token,
                                                           session=proxy):
                         if partial and partial.text:
-                            # Check if the message ends with the elapsed time pattern
-                            if elapsed_time_pattern.search(partial.text):
-                                # Extract base content by removing the pattern
-                                base_content = elapsed_time_pattern.sub("", partial.text)
-                            else:
-                                # Use the entire message as the base content
-                                base_content = partial.text
+                            if partial.text.strip() in ["Thinking...", "Generating image..."]:
+                                continue
+                                
+                            base_content = elapsed_time_pattern.sub("", partial.text)
 
                             if last_sent_base_content == base_content:
-                                # Skip redundant messages
                                 continue
 
-                            total_response += partial.text
+                            total_response += base_content
                             chunk = {
                                 "id": request_id,
                                 "object": "chat.completion.chunk",
@@ -231,14 +227,14 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                                 "model": request.model,
                                 "choices": [{
                                     "delta": {
-                                        "content": partial.text
+                                        "content": base_content
                                     },
                                     "index": 0,
                                     "finish_reason": None
                                 }]
                             }
                             yield f"data: {json.dumps(chunk)}\n\n"
-                            last_sent_base_content = base_content  # Update last sent base content
+                            last_sent_base_content = base_content
 
                     # 发送结束标记
                     end_chunk = {
@@ -259,6 +255,7 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                     logger.info(f"Stream Response [{request_id}]: {total_response[:200]}..." if len(
                         total_response) > 200 else total_response)
                 except BotError as be:
+                    
                     error_chunk = {
                         "id": request_id,
                         "object": "chat.completion.chunk",
@@ -266,7 +263,7 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                         "model": request.model,
                         "choices": [{
                             "delta": {
-                                "content": be
+                                "content": json.loads(be.args[0])["text"]
                             },
                             "index": 0,
                             "finish_reason": "error"
@@ -275,7 +272,6 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                     yield f"data: {json.dumps(error_chunk)}\n\n"
                     yield "data: [DONE]\n\n"
                     logger.error(f"BotError in stream generation for [{request_id}]: {str(be)}")
-                    # raise HTTPException(status_code=400, detail=be) # Removed HTTPException
                 except Exception as e:
                     logger.error(f"Error in stream generation for [{request_id}]: {str(e)}")
                     raise
