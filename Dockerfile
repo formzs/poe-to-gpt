@@ -8,7 +8,9 @@ RUN pip install --no-cache-dir -r requirements.txt -i https://pypi.tuna.tsinghua
 
 # 复制应用代码和配置文件
 COPY app.py .
-COPY config.toml .
+
+# 需要自行挂载配置文件
+# COPY config.toml .
 
 # 暴露端口
 EXPOSE 3700
