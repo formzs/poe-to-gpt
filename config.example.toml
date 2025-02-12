@@ -13,6 +13,11 @@ proxy = ""
 
 timeout = 120  # 设置超时时间
 
+base_url = "https://localhost:3700"  # Your application's base URL
+db_path = "poe-to-gpt.db"  # SQLite database path
+LINUXDO_CLIENT_KEY=""
+LINUXDO_CLIENT_SECRET=""
+
 bot_names = [
     "GPT-4o-Mini",
     "GPT-3.5-Turbo",
