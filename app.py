@@ -14,6 +14,8 @@ from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from fastapi_poe.types import ProtocolMessage
 from fastapi_poe.client import get_bot_response, get_final_response, QueryRequest, BotError
+# Import the database functions
+from database import init_db, get_db, close_db, get_user
 
 app = FastAPI()
 security = HTTPBearer()
@@ -75,6 +77,8 @@ class CompletionRequest(BaseModel):
             }
         }
 
+# Global database connection
+db_conn = None
 
 async def add_token(token: str):
     global api_key_cycle
@@ -161,13 +165,19 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if credentials.credentials not in access_tokens:
-        raise HTTPException(
-            status_code=401,
-            detail="Invalid API key",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    return credentials.credentials
+
+    api_key = credentials.credentials
+    db_user = get_user(api_key)  # No need to pass db
+    if db_user:
+        username = db_user[2]
+        logger.info(f"API key {api_key[:10]}... found in database for user {username}")
+        return api_key
+    elif api_key in access_tokens:
+        logger.info(f"API key {api_key[:10]}... found in accessTokens")
+        return api_key
+    else:
+        logger.warning(f"API key {api_key[:10]}... not found in database or accessTokens")
+        raise HTTPException(status_code=401, detail="Invalid API key", headers={"WWW-Authenticate": "Bearer"})
 
 
 @router.post("/v1/chat/completions")
@@ -176,14 +186,21 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
     request_id = "chat$poe-to-gpt$-" + token[:6]
 
     try:
-        # 打印请求参数（隐藏敏感信息）
+        # Retrieve username from the database
+        username = None
+        db_user = get_user(token)  # No need to pass db
+        if db_user:
+            username = db_user[2]  # Assuming username is the third column
+            logger.debug(f"Found username {username} for API key {token[:10]}...")
+        elif token in access_tokens:
+            username = "access_token_user"
+
+        # Create a safe request log with the username
         safe_request = request.model_dump()
-        if "messages" in safe_request:
-            safe_request["messages"] = [
-                {**msg, "content": msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]}
-                for msg in safe_request["messages"]
-            ]
+        safe_request["username"] = username  # Add username to the request log
+
         logger.info(f"Request [{request_id}]: {json.dumps(safe_request, ensure_ascii=False)}")
+
 
         if not api_key_cycle:
             raise HTTPException(status_code=500, detail="No valid API tokens available")
@@ -211,15 +228,17 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                     async for partial in get_bot_response(protocol_messages, bot_name=request.model, api_key=poe_token,
                                                           session=proxy):
                         if partial and partial.text:
-                            if partial.text.strip() in ["Thinking...", "Generating image..."]:
-                                continue
-                                
                             base_content = elapsed_time_pattern.sub("", partial.text)
-
-                            if last_sent_base_content == base_content:
+                            
+                            # Skip any thinking or generating messages completely
+                            if base_content.strip() in ["Thinking...", "Generating image...", "Generating image"]:
                                 continue
 
                             total_response += base_content
+                            
+                            if last_sent_base_content == base_content:
+                                continue
+
                             chunk = {
                                 "id": request_id,
                                 "object": "chat.completion.chunk",
@@ -251,9 +270,9 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                     yield f"data: {json.dumps(end_chunk)}\n\n"
                     yield "data: [DONE]\n\n"
 
-                    # 打印完整的流式响应（限制长度）
-                    logger.info(f"Stream Response [{request_id}]: {total_response[:200]}..." if len(
-                        total_response) > 200 else total_response)
+                    # Log stream completion with username
+                    log_message = f"Stream Response [{request_id}] for user {username}: {total_response[:200]}..." if len(total_response) > 200 else f"Stream Response [{request_id}] for user {username}: {total_response}"
+                    logger.info(log_message)
                 except BotError as be:
                     
                     error_chunk = {
@@ -293,8 +312,12 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                     "finish_reason": "stop"
                 }]
             }
-            # 打印完整响应（限制长度）
-            safe_response = {**response_data}
+            # Add username to response data for logging
+            safe_response = {
+                **response_data,
+                "username": username
+            }
+            # Log response with username
             if len(response) > 200:
                 logger.info(f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)[:200]}...")
             else:
@@ -333,6 +356,22 @@ async def initialize_tokens(tokens: List[str]):
 
 app.include_router(router)
 
+# Import the linuxdo router
+from auth import linuxdo
+app.include_router(linuxdo.router)
+
+async def startup_event():
+    if init_db() is None:
+        logger.error("Failed to connect to database during startup")
+        sys.exit(1)
+
+app.add_event_handler("startup", startup_event)
+
+async def shutdown_event():
+    close_db()
+    logger.info("Database connection closed")
+
+app.add_event_handler("shutdown", shutdown_event)
 
 async def main(tokens: List[str] = None):
     try:
