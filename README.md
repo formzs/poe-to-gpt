@@ -45,7 +45,7 @@ python app.py
 cp config.example.toml config.toml
 vim config.toml
 # 构建并启动容器，默认运行在端口 3700
-docker-compose up -d --build
+docker-compose up -d
 ```
 
 ### 使用

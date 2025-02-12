@@ -45,7 +45,7 @@ python app.py
 cp config.example.toml config.toml
 vim config.toml
 # Build and start the container, runs on port 3700 by default
-docker-compose up -d --build
+docker-compose up -d
 ```
 
 ### Usage

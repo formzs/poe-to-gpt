@@ -13,7 +13,7 @@ from fastapi import FastAPI, HTTPException, Depends, APIRouter
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse
 from fastapi_poe.types import ProtocolMessage
-from fastapi_poe.client import get_bot_response, get_final_response, QueryRequest
+from fastapi_poe.client import get_bot_response, get_final_response, QueryRequest, BotError
 
 app = FastAPI()
 security = HTTPBearer()
@@ -43,22 +43,7 @@ access_tokens = set(config.get("accessTokens", []))
 client_dict = {}
 api_key_cycle = None
 
-bot_names = {
-    "Assistant", "GPT-3.5-Turbo", "GPT-3.5-Turbo-16k", "GPT-3.5-Turbo-lnstruct", "GPT-4o", "GPT-4o-128k",
-    "GPT-4o-Mini", "GPT-4o-Mini-128k", "ChatGPT-4o-Latest", "ChatGPT-4o-Latest-128k", "GPT-4o-Aug-128k",
-    "o1", "o1-mini", "o1-preview", "Claude-3.5-Sonnet", "Claude-3.5-Sonnet-200k", "Claude-3.5-Haiku",
-    "Claude-3.5-Haiku-200k", "Claude-3.5-Sonnet-June", "Claude-3.5-Sonnet-June-200k", "Claude-3-opus",
-    "Claude-3-opus-200k", "Claude-3-Sonnet", "Claude-3-Sonnet-200k", "Claude-3-Haiku", "Claude-3-Haiku-200k",
-    "Gemini-2.0-Flash","Gemini-1.5-Pro", "Gemini-1.5-Pro-Search", "Gemini-1.5-Pro-128k", "Gemini-1.5-Pro-2M", "Gemini-1.5-Flash",
-    "Gemini-1.5-Flash-Search", "Gemini-1.5-Flash-128k", "Gemini-1.5-Flash-1M", "Grok-beta","Qwen-QwQ-32b-preview",
-    "Qwen-2.5-Coder-32B-T", "Qwen-2.5-72B-T", "Llama-3.1-405B", "Llama-3.1-405B-T", "Llama-3.1-405B-FP16",
-    "Llama-3.1-405B-FW-128k", "Llama-3.1-70B", "Llama-3.1-70B-FP16", "Llama-3.1-70B-T-128k",
-    "Llama-3.1-70B-FW-128k", "Llama-3.1-8B", "Llama-3.1-8B-FP16", "Llama-3.1-8B-T-128k", "DALL-E-3",
-    "StableDiffusionXL", "StableDiffusion3.5-T", "StableDiffusion3.5-L", "StableDiffusion3", "SD3-Turbo",
-    "FLUX-pro", "FLUX-pro-1.1", "FLUX-pro-1.1-T", "FLUX-pro-1.1-ultra", "FLUX-schnell", "FLUX-dev",
-    "Luma-Photon", "Luma-Photon-Flash", "Playground-v3", "Ideogram-v2", "Imagen3", "Imagen3-Fast"
-}
-
+bot_names = config.get("bot_names", [])
 bot_names_map = {name.lower(): name for name in bot_names}
 
 
@@ -116,6 +101,12 @@ async def add_token(token: str):
                 return "failed"
         except Exception as exception:
             logger.error(f"Failed to connect to poe due to {str(exception)}")
+            if isinstance(exception, BotError):
+                try:
+                    error_json = json.loads(exception.text)
+                    return f"failed: {json.dumps(error_json)}"
+                except json.JSONDecodeError:
+                    return f"failed: {str(exception)}"
             return f"failed: {str(exception)}"
     else:
         logger.info(f"apikey already exists: {token[:6]}...")
@@ -210,13 +201,25 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
         poe_token = next(api_key_cycle)
 
         if request.stream:
+            import re
             async def response_generator():
                 total_response = ""
+                last_sent_base_content = None
+                elapsed_time_pattern = re.compile(r" \(\d+s elapsed\)$")
+
                 try:
                     async for partial in get_bot_response(protocol_messages, bot_name=request.model, api_key=poe_token,
                                                           session=proxy):
                         if partial and partial.text:
-                            total_response += partial.text
+                            if partial.text.strip() in ["Thinking...", "Generating image..."]:
+                                continue
+                                
+                            base_content = elapsed_time_pattern.sub("", partial.text)
+
+                            if last_sent_base_content == base_content:
+                                continue
+
+                            total_response += base_content
                             chunk = {
                                 "id": request_id,
                                 "object": "chat.completion.chunk",
@@ -224,13 +227,14 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                                 "model": request.model,
                                 "choices": [{
                                     "delta": {
-                                        "content": partial.text
+                                        "content": base_content
                                     },
                                     "index": 0,
                                     "finish_reason": None
                                 }]
                             }
                             yield f"data: {json.dumps(chunk)}\n\n"
+                            last_sent_base_content = base_content
 
                     # 发送结束标记
                     end_chunk = {
@@ -250,6 +254,24 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                     # 打印完整的流式响应（限制长度）
                     logger.info(f"Stream Response [{request_id}]: {total_response[:200]}..." if len(
                         total_response) > 200 else total_response)
+                except BotError as be:
+                    
+                    error_chunk = {
+                        "id": request_id,
+                        "object": "chat.completion.chunk",
+                        "created": int(asyncio.get_event_loop().time()),
+                        "model": request.model,
+                        "choices": [{
+                            "delta": {
+                                "content": json.loads(be.args[0])["text"]
+                            },
+                            "index": 0,
+                            "finish_reason": "error"
+                        }]
+                    }
+                    yield f"data: {json.dumps(error_chunk)}\n\n"
+                    yield "data: [DONE]\n\n"
+                    logger.error(f"BotError in stream generation for [{request_id}]: {str(be)}")
                 except Exception as e:
                     logger.error(f"Error in stream generation for [{request_id}]: {str(e)}")
                     raise
@@ -278,13 +300,19 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
             else:
                 logger.info(f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)}")
             return response_data
-
     except GeneratorExit:
         logger.info(f"GeneratorExit exception caught for request [{request_id}]")
     except Exception as e:
         error_msg = f"Error during response for request [{request_id}]: {str(e)}"
         logger.error(error_msg)
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/models")
+@router.get("/v1/models")
+async def get_models():
+    model_list = [{"id": name, "object": "model", "type": "llm"} for name in bot_names]
+    return {"data": model_list, "object": "list"}
 
 
 async def initialize_tokens(tokens: List[str]):
