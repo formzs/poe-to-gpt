@@ -1,174 +1,37 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="zh-CN">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Admin Panel</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-        }
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 20px;
-        }
-        th, td {
-            border: 1px solid #ddd;
-            padding: 8px;
-            text-align: left;
-        }
-        th {
-            background-color: #f2f2f2;
-        }
-        button {
-            padding: 5px 10px;
-            cursor: pointer;
-        }
-    </style>
+    <title>管理面板</title>
+    <link rel="stylesheet" href="/styles/styles.css">
 </head>
 <body>
-    <h1>Admin Panel</h1>
+    <div class="container">
+    <div id="admin-panel" style="display:none;">
+        <h1>管理面板</h1>
+        <table id="users-table">
+            <thead>
+                <tr>
+                    <th>用户名</th>
+                    <th>用户ID</th>
+                    <th>启用</th>
+                    <th>管理员</th>
+                    <th>禁用原因</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- User data will be populated here -->
+            </tbody>
+        </table>
+    </div>
 
-    <table id="users-table">
-        <thead>
-            <tr>
-                <th>Username</th>
-                <th>User ID</th>
-                <th>Enabled</th>
-                <th>Actions</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- User data will be populated here -->
-        </tbody>
-    </table>
+    <div id="login-button-container" style="display:block;">
+        <button id="login-button">使用 LinuxDO OAuth 登录</button>
+    </div>
+    </div>
 
-    <h2>Roles</h2>
-    <table id="roles-table">
-        <thead>
-            <tr>
-                <th>Role ID</th>
-                <th>Role Name</th>
-            </tr>
-        </thead>
-        <tbody>
-            <!-- Role data will be populated here -->
-        </tbody>
-    </table>
-
-    <script>
-        const usersTable = document.getElementById('users-table').getElementsByTagName('tbody')[0];
-        const rolesTable = document.getElementById('roles-table').getElementsByTagName('tbody')[0];
-
-        // Function to fetch and display users
-        async function fetchUsers(oauthToken) {
-            try {
-                const response = await fetch('/api/users', {
-                    headers: {
-                        'Authorization': `Bearer ${oauthToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                usersTable.innerHTML = ''; // Clear existing data
-
-                data.users.forEach(user => {
-                    let row = usersTable.insertRow();
-                    let usernameCell = row.insertCell(0);
-                    let userIdCell = row.insertCell(1);
-                    let enabledCell = row.insertCell(2);
-                    let actionsCell = row.insertCell(3);
-
-                    usernameCell.textContent = user.username;
-                    userIdCell.textContent = user.user_id;
-                    enabledCell.textContent = user.enabled ? 'Yes' : 'No';
-
-                    let toggleButton = document.createElement('button');
-                    toggleButton.textContent = user.enabled ? 'Disable' : 'Enable';
-                    toggleButton.onclick = async () => {
-                        await toggleUser(user.user_id, oauthToken);
-                    };
-                    actionsCell.appendChild(toggleButton);
-                });
-            } catch (error) {
-                console.error('Failed to fetch users:', error);
-                alert('Failed to fetch users: ' + error.message);
-            }
-        }
-
-        // Function to toggle user status
-        async function toggleUser(userId, oauthToken) {
-            try {
-                const response = await fetch(`/api/users/${userId}/toggle`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${oauthToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                if (data.success) {
-                    fetchUsers(oauthToken); // Refresh user list
-                } else {
-                    alert('Failed to toggle user status.');
-                }
-            } catch (error) {
-                console.error('Failed to toggle user status:', error);
-                alert('Failed to toggle user status: ' + error.message);
-            }
-        }
-
-        // Function to fetch and display roles
-        async function fetchRoles(oauthToken) {
-            try {
-                const response = await fetch('/api/roles', {
-                    headers: {
-                        'Authorization': `Bearer ${oauthToken}`
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                rolesTable.innerHTML = ''; // Clear existing data
-
-                data.roles.forEach(role => {
-                    let row = rolesTable.insertRow();
-                    let roleIdCell = row.insertCell(0);
-                    let roleNameCell = row.insertCell(1);
-
-                    roleIdCell.textContent = role.role_id;
-                    roleNameCell.textContent = role.role_name;
-                });
-            } catch (error) {
-                console.error('Failed to fetch roles:', error);
-                alert('Failed to fetch roles: ' + error.message);
-            }
-        }
-
-        // Load data on page load
-        window.onload = () => {
-            const oauthToken = localStorage.getItem('oauthToken');
-            if (!oauthToken) {
-                alert('Unauthorized: No access token found. Please log in.');
-                window.location.href = '/';
-                return;
-            }
-            fetchUsers(oauthToken);
-            fetchRoles(oauthToken);
-        };
-    </script>
+    <script src="/scripts/admin.js"></script>
 </body>
 </html>

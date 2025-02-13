@@ -29,6 +29,8 @@ security = HTTPBearer()
 router = APIRouter()
 
 # Mount static files directory
+app.mount("/styles", StaticFiles(directory="public/styles"), name="styles")
+app.mount("/scripts", StaticFiles(directory="public/scripts"), name="scripts")
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
 # Add routes for HTML pages
@@ -190,7 +192,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         )
 
     api_key = credentials.credentials
-    db_user = get_user(api_key)
+    db_user = get_user(api_key = api_key)  
     if not db_user:
         logger.warning(f"API key {api_key[:10]}... not found in database")
         if api_key in access_tokens:
@@ -392,6 +394,8 @@ app.include_router(router)
 from auth import auth, linuxdo
 app.include_router(linuxdo.router)
 app.include_router(auth.router)
+from admin import router as admin_router
+app.include_router(admin_router)
 
 async def startup_event():
     if init_db() is None:

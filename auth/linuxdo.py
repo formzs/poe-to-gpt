@@ -7,7 +7,7 @@ import os
 import sys
 import logging
 # Import the database module and functions
-from database import (create_user, get_user_by_id, update_linuxdo_token)
+from database import (create_user, get_user, update_linuxdo_token, is_admin)
 import datetime
 import uuid
 from httpx import AsyncClient
@@ -59,16 +59,30 @@ async def auth_linuxdo(request: Request, self: str = None):
     redirect_uri = base_url + '/oauth/callback'  # This must match the registered redirect URI
     return await oauth.linuxdo.authorize_redirect(request, redirect_uri)
 
+async def verify_linuxdo_token(access_token: str) -> bool:
+    """Verify access token with LinuxDO's API."""
+    try:
+        async with AsyncClient() as client:
+            headers = {"Authorization": f"Bearer {access_token}"}
+            response = await client.get(UserUrl, headers=headers)
+            return response.status_code == 200
+    except Exception as e:
+        logger.error(f"Failed to verify token with LinuxDO: {e}")
+        return False
+
 @router.get('/oauth/callback')
 async def authorize(request: Request):
     try:
         token = await oauth.linuxdo.authorize_access_token(request)
         logger.info("Received token response: %s", token)
         
-        # Get access token
         access_token = token.get('access_token')
         if not access_token:
-            raise HTTPException(status_code=400, detail="No access token received")
+            raise HTTPException(status_code=400, detail="未收到访问令牌")
+
+        # Verify token with LinuxDO
+        if not await verify_linuxdo_token(access_token):
+            raise HTTPException(status_code=401, detail="访问令牌验证失败")
 
         # Fetch user info directly from LinuxDO API
         async with AsyncClient() as client:
@@ -78,7 +92,7 @@ async def authorize(request: Request):
             user_info = response.json()
 
         if not user_info:
-            raise HTTPException(status_code=400, detail="Failed to fetch user info")
+            raise HTTPException(status_code=400, detail="获取用户信息失败")
 
         # Extract relevant user information
         username = user_info.get('username')
@@ -86,27 +100,29 @@ async def authorize(request: Request):
 
         logger.info(f"Received user info: {user_info}")
   
-        user = get_user_by_id(user_id)
+        user = get_user(user_id=user_id)
 
         if not user:
-            # Create a new user
+            # Create a new user with api_key and other fields
             api_key = generate_api_key()
-            user = create_user(user_id, api_key, username, access_token)
+            create_user(api_key=api_key, username=username, linuxdo_token=access_token)
+            user = get_user(api_key=api_key)  # Get the newly created user
         else:
-            # Update the user's linuxdo_token
-            update_linuxdo_token(user_id, access_token)
-            api_key = user[1]
+            # Update the user's linuxdo_token and get their api_key
+            update_linuxdo_token(user[0], access_token)  # user[0] is user_id
+            api_key = user[1]  # user[1] is api_key
 
-        # check if user is disabled
-        if not user[4]:
-            # If user is disabled, raise an error with reason
-            raise HTTPException(status_code=403, detail=f'User is disabled: {user[5]}')
+        # Check if user is disabled
+        if not user[4]:  # user[4] is enabled status
+            raise HTTPException(status_code=403, detail=f'用户已被禁用：{user[5]}')
 
-        # Check if the user is an admin
+        # Get admin status using their OAuth token
+        admin_status = is_admin(access_token)
+
         res = {
             "apiKey": api_key,
             "oauth_token": access_token,
-            "admin": user[3]
+            "admin": admin_status
         }
 
         return HTMLResponse(f"""

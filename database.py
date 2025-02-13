@@ -49,7 +49,8 @@ def close_db():
 
 # Make these functions available for import
 __all__ = ['init_db', 'get_db', 'close_db', 'get_user', 'create_user', 
-           'is_admin', 'reset_api_key', 'get_all_users', 'disable_user', 'enable_user', 'update_linuxdo_token']
+           'is_admin', 'reset_api_key', 'get_all_users', 
+           'disable_user', 'enable_user', 'update_linuxdo_token']
 
 def create_connection():
     """Create a database connection to a PostgreSQL database."""
@@ -113,22 +114,21 @@ def create_table():
     except psycopg2.Error as e:
         logger.error(f"Error creating table: {e}")
 
-def get_user(api_key: str):
-    """Get a user from the database by api_key."""
+def get_user(user_id: Optional[int] = None, api_key: Optional[str] = None):
+    """Get a user from the database by user_id or api_key."""
     try:
         cursor = _db.cursor()  # Use global connection
-        cursor.execute("SELECT * FROM users WHERE api_key=%s", (api_key,))
-        user = cursor.fetchone()
-        return user
-    except psycopg2.Error as e:
-        logger.error(f"Error getting user: {e}")
-        return None
-    
-def get_user_by_id(user_id: int):
-    """Get a user from the database by user_id."""
-    try:
-        cursor = _db.cursor()
-        cursor.execute("SELECT * FROM users WHERE user_id=%s", (int(user_id),),)
+        if user_id:
+            try:
+                user_id_int = int(user_id)
+                cursor.execute("SELECT * FROM users WHERE user_id=%s", (user_id_int,))
+            except ValueError:
+                logger.error(f"Invalid user_id format: {user_id}")
+                return None
+        elif api_key:
+            cursor.execute("SELECT * FROM users WHERE api_key=%s", (api_key,))
+        else:
+            return None  # No identifier provided
         user = cursor.fetchone()
         return user
     except psycopg2.Error as e:
@@ -200,7 +200,21 @@ def is_admin(api_key: str) -> bool:
         cursor.execute("SELECT is_admin FROM users WHERE api_key=%s", (api_key,))
         user = cursor.fetchone()
         if user:
-            return user[0] == 1
+            # Return the boolean value directly from the database
+            return bool(user[0])
+        return False
+    except psycopg2.Error as e:
+        logger.error(f"Error checking admin status: {e}")
+        return False
+
+def is_admin(oauth_token: str) -> bool:
+    """Check if a user is an admin by their OAuth token."""
+    try:
+        cursor = _db.cursor()
+        cursor.execute("SELECT is_admin FROM users WHERE linuxdo_token = %s", (oauth_token,))
+        user = cursor.fetchone()
+        if user:
+            return bool(user[0])
         return False
     except psycopg2.Error as e:
         logger.error(f"Error checking admin status: {e}")
