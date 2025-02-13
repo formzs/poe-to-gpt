@@ -1,3 +1,5 @@
+from auth import auth, linuxdo
+from admin import router as admin_router
 from typing import List, Optional, Dict
 from pydantic import BaseModel
 import asyncio
@@ -20,11 +22,8 @@ from fastapi_poe.client import get_bot_response, get_final_response, QueryReques
 # Import the database functions
 from database import init_db, get_db, close_db, get_user
 
-middleware = [
-    Middleware(SessionMiddleware, secret_key="your-secret-key")  # Replace with a real secret key
-]
 
-app = FastAPI(middleware=middleware)
+app = FastAPI()
 security = HTTPBearer()
 router = APIRouter()
 
@@ -34,13 +33,17 @@ app.mount("/scripts", StaticFiles(directory="public/scripts"), name="scripts")
 app.mount("/static", StaticFiles(directory="public"), name="static")
 
 # Add routes for HTML pages
+
+
 @app.get("/")
 async def get_index():
     return FileResponse("public/index.html")
 
+
 @app.get("/admin")
 async def get_admin_page():
     return FileResponse("public/admin.html")
+
 
 @app.get("/login")
 async def get_login_page():
@@ -52,7 +55,8 @@ config_path = os.path.join(file_dir, "config.toml")
 config = toml.load(config_path)
 
 # 设置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO,
+                    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 # 初始化代理
@@ -102,8 +106,10 @@ class CompletionRequest(BaseModel):
             }
         }
 
+
 # Global database connection
 db_conn = None
+
 
 async def add_token(token: str):
     global api_key_cycle
@@ -126,7 +132,8 @@ async def add_token(token: str):
                 logger.info(f"apikey added successfully: {token[:6]}...")
                 return "ok"
             else:
-                logger.error(f"Failed to add apikey: {token[:6]}..., response: {ret}")
+                logger.error(
+                    f"Failed to add apikey: {token[:6]}..., response: {ret}")
                 return "failed"
         except Exception as exception:
             logger.error(f"Failed to connect to poe due to {str(exception)}")
@@ -150,7 +157,8 @@ async def get_responses(request: CompletionRequest, token: str):
     if model_lower in bot_names_map:
         request.model = bot_names_map[model_lower]
         message = [
-            ProtocolMessage(role=msg.role if msg.role in ["user", "system"] else "bot", content=msg.content)
+            ProtocolMessage(role=msg.role if msg.role in [
+                            "user", "system"] else "bot", content=msg.content)
             for msg in request.messages
         ]
         additional_params = {
@@ -174,7 +182,8 @@ async def get_responses(request: CompletionRequest, token: str):
             logger.error(f"Error in get_final_response: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
     else:
-        raise HTTPException(status_code=400, detail=f"Model {request.model} is not supported")
+        raise HTTPException(
+            status_code=400, detail=f"Model {request.model} is not supported")
 
 
 async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)):
@@ -192,7 +201,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         )
 
     api_key = credentials.credentials
-    db_user = get_user(api_key = api_key)  
+    db_user = get_user(api_key=api_key)
     if not db_user:
         logger.warning(f"API key {api_key[:10]}... not found in database")
         if api_key in access_tokens:
@@ -206,7 +215,8 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         raise HTTPException(status_code=403, detail=reason)
 
     username = db_user[2]
-    logger.info(f"API key {api_key[:10]}... found in database for user {username}")
+    logger.info(
+        f"API key {api_key[:10]}... found in database for user {username}")
     return api_key
 
 
@@ -218,44 +228,51 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
     try:
         # Retrieve username from the database
         username = None
-        db_user = get_user(token)  # No need to pass db
+        db_user = get_user(api_key=token)  # No need to pass db
         if db_user:
             username = db_user[2]  # Assuming username is the third column
-            logger.debug(f"Found username {username} for API key {token[:10]}...")
+            logger.debug(
+                f"Found username {username} for API key {token[:10]}...")
         elif token in access_tokens:
             username = "access_token_user"
+
+        logger.debug(f"Found username {username} for API key {token[:10]}...")
 
         # Create a safe request log with the username
         safe_request = request.model_dump()
         safe_request["username"] = username  # Add username to the request log
 
-        logger.info(f"Request [{request_id}]: {json.dumps(safe_request, ensure_ascii=False)}")
-
+        logger.info(
+            f"Request [{request_id}]: {json.dumps(safe_request, ensure_ascii=False)}")
 
         if not api_key_cycle:
-            raise HTTPException(status_code=500, detail="No valid API tokens available")
+            raise HTTPException(
+                status_code=500, detail="No valid API tokens available")
 
         model_lower = request.model.lower()
         if model_lower not in bot_names_map:
-            raise HTTPException(status_code=400, detail=f"Model {request.model} not found")
+            raise HTTPException(
+                status_code=400, detail=f"Model {request.model} not found")
 
         request.model = bot_names_map[model_lower]
-        
+
         protocol_messages = [
-            ProtocolMessage(role=msg.role if msg.role in ["user", "system"] else "bot", content=msg.content)
+            ProtocolMessage(role=msg.role if msg.role in [
+                            "user", "system"] else "bot", content=msg.content)
             for msg in request.messages
         ]
         poe_token = next(api_key_cycle)
 
         if request.stream:
             import re
+
             async def response_generator():
                 total_response = ""
                 last_sent_base_content = None
                 elapsed_time_pattern = re.compile(r" \(\d+s elapsed\)$")
 
                 try:
-                    async for partial in get_bot_response(protocol_messages, 
+                    async for partial in get_bot_response(protocol_messages,
                                                           bot_name=request.model,
                                                           api_key=poe_token,
                                                           session=proxy):
@@ -263,13 +280,14 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                             # Skip status messages since client handles loading states
                             if partial.text.strip() in ["Thinking...", "Generating image..."]:
                                 continue
-                                
-                            base_content = elapsed_time_pattern.sub("", partial.text)
+
+                            base_content = elapsed_time_pattern.sub(
+                                "", partial.text)
                             if last_sent_base_content == base_content:
                                 continue
 
                             total_response += base_content
-                            
+
                             if last_sent_base_content == base_content:
                                 continue
 
@@ -305,10 +323,11 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                     yield "data: [DONE]\n\n"
 
                     # Log stream completion with username
-                    log_message = f"Stream Response [{request_id}] for user {username}: {total_response[:200]}..." if len(total_response) > 200 else f"Stream Response [{request_id}] for user {username}: {total_response}"
+                    log_message = f"Stream Response [{request_id}] for user {username}: {total_response[:200]}..." if len(
+                        total_response) > 200 else f"Stream Response [{request_id}] for user {username}: {total_response}"
                     logger.info(log_message)
                 except BotError as be:
-                    
+
                     error_chunk = {
                         "id": request_id,
                         "object": "chat.completion.chunk",
@@ -324,9 +343,11 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                     }
                     yield f"data: {json.dumps(error_chunk)}\n\n"
                     yield "data: [DONE]\n\n"
-                    logger.error(f"BotError in stream generation for [{request_id}]: {str(be)}")
+                    logger.error(
+                        f"BotError in stream generation for [{request_id}]: {str(be)}")
                 except Exception as e:
-                    logger.error(f"Error in stream generation for [{request_id}]: {str(e)}")
+                    logger.error(
+                        f"Error in stream generation for [{request_id}]: {str(e)}")
                     raise
 
             return StreamingResponse(response_generator(), media_type="text/event-stream")
@@ -353,12 +374,15 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
             }
             # Log response with username
             if len(response) > 200:
-                logger.info(f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)[:200]}...")
+                logger.info(
+                    f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)[:200]}...")
             else:
-                logger.info(f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)}")
+                logger.info(
+                    f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)}")
             return response_data
     except GeneratorExit:
-        logger.info(f"GeneratorExit exception caught for request [{request_id}]")
+        logger.info(
+            f"GeneratorExit exception caught for request [{request_id}]")
     except Exception as e:
         error_msg = f"Error during response for request [{request_id}]: {str(e)}"
         logger.error(error_msg)
@@ -368,7 +392,8 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
 @router.get("/models")
 @router.get("/v1/models")
 async def get_models():
-    model_list = [{"id": name, "object": "model", "type": "llm"} for name in bot_names]
+    model_list = [{"id": name, "object": "model", "type": "llm"}
+                  for name in bot_names]
     return {"data": model_list, "object": "list"}
 
 
@@ -385,17 +410,17 @@ async def initialize_tokens(tokens: List[str]):
         else:
             global api_key_cycle
             api_key_cycle = itertools.cycle(client_dict.values())
-            logger.info(f"Successfully initialized {len(client_dict)} API tokens")
+            logger.info(
+                f"Successfully initialized {len(client_dict)} API tokens")
 
 
 app.include_router(router)
 
 # Import the linuxdo router
-from auth import auth, linuxdo
 app.include_router(linuxdo.router)
 app.include_router(auth.router)
-from admin import router as admin_router
 app.include_router(admin_router)
+
 
 async def startup_event():
     if init_db() is None:
@@ -404,11 +429,13 @@ async def startup_event():
 
 app.add_event_handler("startup", startup_event)
 
+
 async def shutdown_event():
     close_db()
     logger.info("Database connection closed")
 
 app.add_event_handler("shutdown", shutdown_event)
+
 
 async def main(tokens: List[str] = None):
     try:

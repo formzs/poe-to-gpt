@@ -6,18 +6,16 @@
     <title>管理面板</title>
     <link rel="stylesheet" href="/styles/styles.css">
 </head>
-<body>
-    <div class="container">
-    <div id="admin-panel" style="display:none;">
+<body class="admin-page">
+    <div id="admin-panel" class="admin-container" style="display:none;">
         <h1>管理面板</h1>
         <table id="users-table">
             <thead>
                 <tr>
                     <th>用户名</th>
                     <th>用户ID</th>
-                    <th>启用</th>
-                    <th>管理员</th>
-                    <th>禁用原因</th>
+                    <th>创建时间</th>
+                    <th>上次使用时间</th>
                     <th>操作</th>
                 </tr>
             </thead>
@@ -27,9 +25,9 @@
         </table>
     </div>
 
-    <div id="login-button-container" style="display:block;">
+    <div id="login-button-container" class="login-container" style="display:block;">
+        <h1>管理员登录</h1>
         <button id="login-button">使用 LinuxDO OAuth 登录</button>
-    </div>
     </div>
 
     <script src="/scripts/admin.js"></script>

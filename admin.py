@@ -42,7 +42,7 @@ async def is_admin_user(request: Request):
     return True
 
 @router.post("/admin/reset-key/{user_id}")
-async def admin_reset_key(user_id: int, request: Request, is_admin: bool = Depends(is_admin_user)):
+async def admin_reset_key(user_id: int, is_admin: bool = Depends(is_admin_user)):
     """Reset a user's API key."""
     new_key = reset_api_key(user_id)
     if new_key:
@@ -50,21 +50,21 @@ async def admin_reset_key(user_id: int, request: Request, is_admin: bool = Depen
     raise HTTPException(status_code=500, detail="重置API密钥失败")
 
 @router.post("/admin/disable/{user_id}")
-async def admin_disable_user(user_id: int, request: Request, reason: str = Form(...), is_admin: bool = Depends(is_admin_user)):
+async def admin_disable_user(user_id: int, reason: str = Form(...), is_admin: bool = Depends(is_admin_user)):
     """Disable a user's access."""
     if disable_user(user_id, reason):
         return RedirectResponse(url="/admin", status_code=303)
     raise HTTPException(status_code=500, detail="Failed to disable user")
 
 @router.post("/admin/enable/{user_id}")
-async def admin_enable_user(user_id: int, request: Request, is_admin: bool = Depends(is_admin_user)):
+async def admin_enable_user(user_id: int, is_admin: bool = Depends(is_admin_user)):
     """Re-enable a user's access."""
     if enable_user(user_id):
         return RedirectResponse(url="/admin", status_code=303)
     raise HTTPException(status_code=500, detail="Failed to enable user")
 
 @router.post("/admin/toggle-admin/{user_id}")
-async def toggle_admin(user_id: int, request: Request, is_admin: bool = Depends(is_admin_user)):
+async def toggle_admin(user_id: int, request: Request):
     """Toggle admin status for a user (admin only)."""
     body = await request.json()
     new_admin_status = body.get('is_admin', False)
@@ -82,7 +82,7 @@ async def toggle_admin(user_id: int, request: Request, is_admin: bool = Depends(
         raise HTTPException(status_code=500, detail="更新管理员状态失败")
 
 @router.get("/users")
-async def list_users(request: Request, is_admin: bool = Depends(is_admin_user)):
+async def list_users(is_admin: bool = Depends(is_admin_user)):
     """List all users (admin only)."""
     users = get_all_users()
     user_list = [{
@@ -90,12 +90,14 @@ async def list_users(request: Request, is_admin: bool = Depends(is_admin_user)):
         "username": user[2],
         "enabled": user[4],
         "disable_reason": user[5],  # Include disable_reason
-        "is_admin": user[8]
+        "is_admin": user[8],
+        "created_at": user[6].isoformat() if user[6] else None,
+        "last_used_at": user[7].isoformat() if user[7] else None
     } for user in users]
     return {"users": user_list}
 
 @router.post("/users/{user_id}/toggle")
-async def toggle_user(user_id: int, request: Request, is_admin: bool = Depends(is_admin_user)):
+async def toggle_user(user_id: int, is_admin: bool = Depends(is_admin_user)):
     """Enable or disable a user (admin only)."""
     user = get_user(user_id=user_id)
     if not user:

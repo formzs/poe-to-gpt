@@ -14,6 +14,11 @@ body {
     border-radius: 12px;
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
     text-align: center;
+    width: 90vw;
+        max-width: 1200px;
+        max-height: 90vh;
+        overflow-y: auto;
+        position: relative;
 }
 
 h1 {
@@ -192,4 +197,254 @@ tbody tr:hover {
 
 .checkbox-wrapper input[type="checkbox"]:checked + label:after {
     opacity: 1;
+}
+
+/* Admin panel styles */
+.admin-star {
+    color: #ffc107;
+    /* Accent color */
+    font-size: 1.2em;
+    margin-right: 5px;
+}
+
+/* Dropdown Button */
+.dropdown-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 8px 16px;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    min-width: 100px;
+}
+
+.dropdown-btn:hover {
+    background-color: #45a049;
+}
+
+/* Dropdown Content (Hidden by Default) */
+.dropdown-content {
+    display: none;
+    position: absolute;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0px 8px 16px 0px rgba(0, 0, 0, 0.2);
+    z-index: 1;
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    border-radius: 5px;
+    right: 0;
+    /* Align to the right */
+}
+
+/* Links inside the dropdown */
+.dropdown-content a {
+    color: black;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    transition: background-color 0.3s ease;
+}
+
+/* Change color of dropdown links on hover */
+.dropdown-content a:hover {
+    background-color: #ddd;
+}
+
+.dropdown {
+    position: relative;
+    display: inline-block;
+    text-align: right;
+    /* Align the content to the right */
+}
+
+/* Updated Dropdown styles */
+.dropdown {
+    position: relative;
+    display: inline-block;
+}
+
+.dropdown:hover .dropdown-content {
+    display: block;
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.dropdown-btn {
+    background-color: #4CAF50;
+    color: white;
+    padding: 8px 16px;
+    font-size: 14px;
+    border: none;
+    cursor: pointer;
+    border-radius: 4px;
+    min-width: 100px;
+}
+
+.dropdown-content {
+    position: absolute;
+    right: 0;
+    top: 100%;
+    background-color: #f9f9f9;
+    min-width: 160px;
+    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2);
+    border-radius: 4px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.2s ease;
+    z-index: 1000;
+    overflow: visible;
+}
+
+.dropdown-content li {
+    list-style: none;
+}
+
+.dropdown-content a {
+    color: #333;
+    padding: 12px 16px;
+    text-decoration: none;
+    display: block;
+    transition: background-color 0.2s;
+    font-size: 14px;
+    white-space: nowrap;
+}
+
+.dropdown-content a:hover {
+    background-color: #f1f1f1;
+    color: #000;
+}
+
+/* Tooltip styles */
+[title] {
+    position: relative;
+    display: inline-block;
+}
+
+[title]:hover::after {
+    content: attr(title);
+    position: absolute;
+    left: 50%;
+    bottom: 100%;
+    transform: translateX(-50%);
+    background-color: #333;
+    color: #fff;
+    padding: 5px 10px;
+    border-radius: 5px;
+    font-size: 0.8em;
+    white-space: nowrap;
+    z-index: 1;
+}
+
+[title]:hover::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    bottom: calc(100% - 5px);
+    transform: translateX(-50%);
+    border-width: 5px;
+    border-style: solid;
+    border-color: #333 transparent transparent transparent;
+    z-index: 2;
+}
+
+#users-table {
+    width: 100%;
+    min-width: 800px;
+    margin: 20px 0;
+    font-size: 0.95em;
+    font-family: sans-serif;
+    box-shadow: 0 0 20px rgba(0, 0, 0, 0.15);
+    overflow: visible;
+}
+
+#users-table thead tr {
+    background-color: #009879;
+    color: #ffffff;
+    text-align: left;
+    font-weight: bold;
+}
+
+#users-table th,
+#users-table td {
+    padding: 15px 20px;
+}
+
+#users-table tbody tr {
+    border-bottom: 1px solid #dddddd;
+}
+
+#users-table tbody tr:nth-of-type(even) {
+    background-color: #f3f3f3;
+}
+
+#users-table tbody tr:last-of-type {
+    border-bottom: 2px solid #009879;
+}
+
+#users-table tbody tr.active-row {
+    font-weight: bold;
+    color: #009879;
+}
+
+#users-table tbody tr.disabled-user {
+    color: #888888;
+    /* Grey out disabled users */
+}
+
+#users-table select {
+    padding: 8px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+    background-color: white;
+    font-size: 0.8em;
+}
+
+/* Special styles for admin panel */
+body.admin-page {
+    height: 100vh;
+    padding: 20px;
+    display: block;
+    background-color: #f0f2f5;
+}
+
+.admin-page .container {
+    width: 95%;
+    max-width: none;
+    height: auto;
+    min-height: 90vh;
+    margin: 20px auto;
+    padding: 30px;
+    overflow: auto;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+}
+
+/* Login container styles */
+.admin-page .login-container {
+    width: 400px;
+    max-width: 90%;
+    margin: 100px auto;
+    padding: 30px;
+    background-color: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    text-align: center;
+}
+
+/* Admin panel container styles */
+.admin-page .admin-container {
+    width: 95%;
+    max-width: none;
+    height: auto;
+    min-height: 90vh;
+    margin: 20px auto;
+    padding: 30px;
+    background-color: #fff;
+    border-radius: 12px;
+    overflow: auto;
+    box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
 }

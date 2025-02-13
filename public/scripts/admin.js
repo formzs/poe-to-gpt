@@ -61,53 +61,86 @@ async function displayUsers() {
         usersTable.innerHTML = ''; // Clear existing data
         data.users.forEach(user => {
             let row = usersTable.insertRow();
+            row.classList.toggle('disabled-user', !user.enabled);
+
             let usernameCell = row.insertCell(0);
             let userIdCell = row.insertCell(1);
-            let enabledCell = row.insertCell(2);
-            let adminCell = row.insertCell(3);
-            let reasonCell = row.insertCell(4);  // Add reason cell
-            let actionsCell = row.insertCell(5);  // Move actions to last column
+            let createdAtCell = row.insertCell(2);
+            let lastUsedAtCell = row.insertCell(3);
+            let actionsCell = row.insertCell(4);
 
-            usernameCell.textContent = user.username;
+            // Include admin star in username cell
+            usernameCell.innerHTML = `${user.is_admin ? '<span class="admin-star">★</span> ' : ''}${user.username}`;
             userIdCell.textContent = user.user_id;
-            
-            // Enabled status checkbox
-            enabledCell.innerHTML = `
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" id="enabled-${user.user_id}" 
-                           ${user.enabled ? 'checked' : ''}>
-                    <label for="enabled-${user.user_id}"></label>
-                </div>`;
-            
-            // Admin status checkbox
-            adminCell.innerHTML = `
-                <div class="checkbox-wrapper">
-                    <input type="checkbox" id="admin-${user.user_id}" 
-                           ${user.is_admin ? 'checked' : ''}>
-                    <label for="admin-${user.user_id}"></label>
-                </div>`;
 
-            // Add disable reason (if any)
-            reasonCell.textContent = user.disable_reason || '-';
-            if (!user.enabled && user.disable_reason) {
-                reasonCell.style.color = '#dc3545';  // Red color for disabled reason
+            // Format dates consistently
+            const dateTimeFormat = new Intl.DateTimeFormat('zh-CN', { // Adjust locale as needed
+                year: 'numeric',
+                month: 'short',
+                day: 'numeric',
+                hour: 'numeric',
+                minute: 'numeric',
+                second: 'numeric'
+            });
+
+            let createdAt = 'N/A';
+            if (user.created_at && !isNaN(new Date(user.created_at))) {
+                createdAt = dateTimeFormat.format(new Date(user.created_at));
             }
+            createdAtCell.textContent = createdAt;
 
-            // Add event listeners
-            enabledCell.querySelector('input').addEventListener('change', async (e) => {
-                await toggleUser(user.user_id);
+            let lastUsedAt = 'N/A';
+            if (user.last_used_at && !isNaN(new Date(user.last_used_at))) {
+                lastUsedAt = dateTimeFormat.format(new Date(user.last_used_at));
+            }
+            lastUsedAtCell.textContent = lastUsedAt;
+
+            // Create action dropdown menu
+            let actionMenu = document.createElement('div');
+            actionMenu.className = 'dropdown';
+            actionMenu.innerHTML = `
+                <button class="dropdown-btn">操作</button>
+                <ul class="dropdown-content" id="dropdown-${user.user_id}">
+                    <li><a href="#" data-action="toggleEnable">${user.enabled ? '禁用' : '启用'}</a></li>
+                    <li><a href="#" data-action="resetApiKey">重置密钥</a></li>
+                    <li><a href="#" data-action="toggleAdmin">${user.is_admin ? '取消管理员' : '设为管理员'}</a></li>
+                </ul>
+            `;
+            actionsCell.appendChild(actionMenu);
+
+            // Add click handlers for dropdown items
+            const dropdownContent = actionMenu.querySelector('.dropdown-content');
+            dropdownContent.addEventListener('click', async (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const action = e.target.dataset.action;
+                if (!action) return;
+
+                try {
+                    switch (action) {
+                        case 'toggleEnable':
+                            await toggleUser(user.user_id);
+                            break;
+                        case 'resetApiKey':
+                            await resetApiKey(user.user_id);
+                            break;
+                        case 'toggleAdmin':
+                            await toggleAdmin(user.user_id, !user.is_admin);
+                            break;
+                    }
+                } catch (error) {
+                    showToast(error.message);
+                }
             });
+        });
 
-            adminCell.querySelector('input').addEventListener('change', async (e) => {
-                await toggleAdmin(user.user_id, e.target.checked);
-            });
-
-            let resetButton = document.createElement('button');
-            resetButton.textContent = '重置密钥';
-            resetButton.onclick = async () => {
-                await resetApiKey(user.user_id);
-            };
-            actionsCell.appendChild(resetButton);
+        // Add global click handler to close dropdowns
+        document.addEventListener('click', (e) => {
+            if (!e.target.closest('.dropdown')) {
+                document.querySelectorAll('.dropdown-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+            }
         });
     } catch (error) {
         console.error('获取用户失败:', error);
