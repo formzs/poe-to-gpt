@@ -34,6 +34,7 @@ jobs:
             type=ref,event=branch
             type=sha,format=long
             type=raw,value=latest,enable={{is_default_branch}}
+            type=raw,value=${{ github.head_ref || github.ref_name }}
 
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
