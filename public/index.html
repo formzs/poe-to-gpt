@@ -199,10 +199,9 @@
     if (typeof event.data !== 'object' || (!event.data.apiKey && !event.data.error)) {
        return;
     }
+    console.log('Received message:', event.data);
     if (event.data.apiKey) {
         showApiKeySection(event.data.apiKey);
-        // Removed token storage for one-time login:
-        // localStorage.setItem('api_key', event.data.apiKey);
         if (authWindow && !authWindow.closed) {
             authWindow.close();
         }

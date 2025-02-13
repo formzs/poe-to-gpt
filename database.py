@@ -3,6 +3,8 @@ import os
 import toml
 import sys
 import logging
+import uuid
+from typing import Optional
 
 # Determine the project root directory
 file_path = os.path.abspath(sys.argv[0])
@@ -44,7 +46,8 @@ def close_db():
         _db = None
 
 # Make these functions available for import
-__all__ = ['init_db', 'get_db', 'close_db', 'get_user', 'create_user']
+__all__ = ['init_db', 'get_db', 'close_db', 'get_user', 'create_user', 
+           'is_admin', 'reset_api_key', 'get_all_users', 'disable_user', 'enable_user']
 
 def create_connection():
     """Create a database connection to a SQLite database."""
@@ -93,17 +96,72 @@ def get_user(api_key: str):
     except sqlite3.Error as e:
         logger.error(f"Error getting user: {e}")
         return None
+    
+def get_user_by_id(user_id: int):
+    """Get a user from the database by user_id."""
+    try:
+        cursor = _db.cursor()
+        cursor.execute("SELECT * FROM users WHERE user_id=?", (user_id,))
+        user = cursor.fetchone()
+        return user
+    except sqlite3.Error as e:
+        logger.error(f"Error getting user: {e}")
+        return None
 
-def create_user(api_key: str, username: str, linuxdo_token: str, created_at: str):
+def create_user(user_id, api_key: str, username: str, linuxdo_token: str):
     """Create a new user in the database."""
     try:
-        sql = ''' INSERT INTO users(api_key, username, linuxdo_token, created_at)
-                  VALUES(?,?,?,?) '''
+        sql = ''' INSERT INTO users(user_id, api_key, username, linuxdo_token, created_at)
+                  VALUES(?,?,?,?,NOW()) '''
         cursor = _db.cursor()  # Use global connection
-        cursor.execute(sql, (api_key, username, linuxdo_token, created_at))
+        cursor.execute(sql, (user_id, api_key, username, linuxdo_token))
         _db.commit()
         logger.info(f"User created successfully: {username}")
         return cursor.lastrowid
     except sqlite3.Error as e:
         logger.error(f"Error creating user: {e}")
         return None
+
+def reset_api_key(user_id: int) -> Optional[str]:
+    """Reset a user's API key."""
+    try:
+        new_api_key = f"sk-yn-{uuid.uuid4()}"
+        cursor = _db.cursor()
+        cursor.execute("UPDATE users SET api_key=? WHERE user_id=?", (new_api_key, user_id))
+        _db.commit()
+        return new_api_key
+    except sqlite3.Error as e:
+        logger.error(f"Error resetting API key: {e}")
+        return None
+
+def get_all_users():
+    """Get all users from database."""
+    try:
+        cursor = _db.cursor()
+        cursor.execute("SELECT * FROM users ORDER BY created_at DESC")
+        return cursor.fetchall()
+    except sqlite3.Error as e:
+        logger.error(f"Error getting users: {e}")
+        return []
+
+def disable_user(user_id: int, reason: str) -> bool:
+    """Disable a user's access."""
+    try:
+        cursor = _db.cursor()
+        cursor.execute("UPDATE users SET enabled=0, disable_reason=? WHERE user_id=?", (reason, user_id))
+        _db.commit()
+        return True
+    except sqlite3.Error as e:
+        logger.error(f"Error disabling user: {e}")
+        return False
+
+def enable_user(user_id: int) -> bool:
+    """Re-enable a user's access."""
+    try:
+        cursor = _db.cursor()
+        cursor.execute("UPDATE users SET enabled=1, disable_reason=NULL WHERE user_id=?", (user_id,))
+        _db.commit()
+        return True
+    except sqlite3.Error as e:
+        logger.error(f"Error enabling user: {e}")
+        return False

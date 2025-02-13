@@ -7,4 +7,4 @@ python-multipart
 pydantic~=2.10.3
 httpx~=0.28.0
 aiosqlite~=0.17.0
-authlib
+itsdangerous~=2.1.2

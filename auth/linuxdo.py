@@ -1,14 +1,15 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import RedirectResponse
+from fastapi import APIRouter, Depends, HTTPException, Request, Form
+from fastapi.responses import RedirectResponse, HTMLResponse
 from authlib.integrations.starlette_client import OAuth
 import toml
 import os
 import sys
 import logging
 # Import the database module and functions
-from database import get_user, create_user, get_db
+from database import (create_user, get_user_by_id, )
 import datetime
 import uuid
+from httpx import AsyncClient
 
 router = APIRouter()
 
@@ -23,7 +24,7 @@ config_path = os.path.join(file_dir, "config.toml")
 config = toml.load(config_path)
 
 # LinuxDO OAuth Configuration
-base_url = config.get("base_url", "https://localhost:3700")  # Your application's base URL
+base_url = config.get("base_url", "http://localhost:3700")  # Your application's base URL
 LINUXDO_CLIENT_KEY = config.get("LINUXDO_CLIENT_KEY")
 LINUXDO_CLIENT_SECRET = config.get("LINUXDO_CLIENT_SECRET")
 
@@ -32,11 +33,15 @@ LINUXDO_CLIENT_SECRET = config.get("LINUXDO_CLIENT_SECRET")
 oauth = OAuth()
 oauth.register(
     name='linuxdo',
-    server_metadata_url='https://connect.linux.do/oauth/discovery',
+    authorize_url='https://connect.linux.do/oauth2/authorize',
+    access_token_url='https://connect.linux.do/oauth2/token',
     client_id=LINUXDO_CLIENT_KEY,
     client_secret=LINUXDO_CLIENT_SECRET,
     client_kwargs={'scope': 'openid profile email'}
 )
+
+# Optionally define UserUrl
+UserUrl = "https://connect.linux.do/api/user"
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -46,9 +51,10 @@ logger = logging.getLogger(__name__)
 def generate_api_key():
     return f"sk-yn-{uuid.uuid4()}"
 
-# OAuth route
-@router.get('/login')
-async def login(request: Request):
+# OAuth routes
+@router.get('/auth/linuxdo')
+async def auth_linuxdo(request: Request, self: str = None):
+    """Handle LinuxDO authentication."""
     redirect_uri = base_url + '/oauth/callback'  # This must match the registered redirect URI
     return await oauth.linuxdo.authorize_redirect(request, redirect_uri)
 
@@ -56,37 +62,61 @@ async def login(request: Request):
 async def authorize(request: Request):
     try:
         token = await oauth.linuxdo.authorize_access_token(request)
-    except Exception as e:
-        logger.error(f"OAuth authorization failed: {e}")
-        raise HTTPException(status_code=400, detail="OAuth authorization failed")
-    user_info = token.get('userinfo')
-    access_token = token.get('access_token')
-    if user_info:
-        linuxdo_id = user_info.get('sub')
-        email = user_info.get('email')
-        name = user_info.get('name')
+        logger.info("Received token response: %s", token)
         
-        db_user = get_user(access_token)  # No need to pass db
-        if db_user:
-            logger.info(f"User already exists in the database: {linuxdo_id}")
-        else:
+        # Get access token
+        access_token = token.get('access_token')
+        if not access_token:
+            raise HTTPException(status_code=400, detail="No access token received")
+
+        # Fetch user info directly from LinuxDO API
+        async with AsyncClient() as client:
+            headers = {"Authorization": f"Bearer {access_token}"}
+            response = await client.get(UserUrl, headers=headers)
+            response.raise_for_status()
+            user_info = response.json()
+
+        if not user_info:
+            raise HTTPException(status_code=400, detail="Failed to fetch user info")
+
+        # Extract relevant user information
+        username = user_info.get('username')
+        user_id = user_info.get('id')
+
+        logger.info(f"Received user info: {user_info}")
+  
+        user = get_user_by_id(user_id)
+
+        if not user:
+            # Create a new user
             api_key = generate_api_key()
-            now = datetime.datetime.now().isoformat()
-            create_user(api_key, name, access_token, now)  # No need to pass db
-            logger.info(f"Created user with API key: {api_key[:10]}...")
-            # Redirect to a success page with the API key
-            success_url = f"{base_url}/login/success?api_key={api_key}"
-            return RedirectResponse(url=success_url)
+            user = create_user(user_id, api_key, username, access_token)
+        else:   
+            api_key = user[1]
 
-        logger.info(f"Logged in user: {user_info}")
-        # Redirect to a page indicating successful login
-        return RedirectResponse(url=base_url + '/login/success')
-    else:
-        raise HTTPException(status_code=400, detail="Failed to retrieve user info")
+        # check if user is disabled
+        if not user[4]:
+            # If user is disabled, raise an error with reason
+            raise HTTPException(status_code=403, detail=f'User is disabled: {user[5]}')
 
-@router.get('/login/success')
-async def login_success(api_key: str = None):
-    if api_key:
-        return f"Login Success! Your API key is: {api_key}"
-    else:
-        return "Login Success!"
+        # Check if the user is an admin
+        if user[8]:
+            # If admin, post message with apiKey and redirect to admin page
+            return HTMLResponse(f"""
+                <script>
+                    window.opener.postMessage({{ apiKey: '{api_key}', admin: true }}, window.location.origin);
+                    window.close();
+                </script>
+            """)
+        else:
+            # If not admin, post message with apiKey
+            return HTMLResponse(f"""
+                <script>
+                    window.opener.postMessage({{ apiKey: '{api_key}' }}, window.location.origin);
+                    window.close();
+                </script>
+            """)
+
+    except Exception as e:
+        logger.error(f"OAuth authorization failed: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))

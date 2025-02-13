@@ -11,15 +11,38 @@ import json
 from httpx import AsyncClient
 from fastapi import FastAPI, HTTPException, Depends, APIRouter
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.middleware import Middleware
+from starlette.middleware.sessions import SessionMiddleware
 from fastapi_poe.types import ProtocolMessage
 from fastapi_poe.client import get_bot_response, get_final_response, QueryRequest, BotError
 # Import the database functions
 from database import init_db, get_db, close_db, get_user
 
-app = FastAPI()
+middleware = [
+    Middleware(SessionMiddleware, secret_key="your-secret-key")  # Replace with a real secret key
+]
+
+app = FastAPI(middleware=middleware)
 security = HTTPBearer()
 router = APIRouter()
+
+# Mount static files directory
+app.mount("/static", StaticFiles(directory="public"), name="static")
+
+# Add routes for HTML pages
+@app.get("/")
+async def get_index():
+    return FileResponse("public/index.html")
+
+@app.get("/admin")
+async def get_admin_page():
+    return FileResponse("public/admin.html")
+
+@app.get("/login")
+async def get_login_page():
+    return FileResponse("public/login.html")
 
 file_path = os.path.abspath(sys.argv[0])
 file_dir = os.path.dirname(file_path)
@@ -167,17 +190,22 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         )
 
     api_key = credentials.credentials
-    db_user = get_user(api_key)  # No need to pass db
-    if db_user:
-        username = db_user[2]
-        logger.info(f"API key {api_key[:10]}... found in database for user {username}")
-        return api_key
-    elif api_key in access_tokens:
-        logger.info(f"API key {api_key[:10]}... found in accessTokens")
-        return api_key
-    else:
-        logger.warning(f"API key {api_key[:10]}... not found in database or accessTokens")
-        raise HTTPException(status_code=401, detail="Invalid API key", headers={"WWW-Authenticate": "Bearer"})
+    db_user = get_user(api_key)
+    if not db_user:
+        logger.warning(f"API key {api_key[:10]}... not found in database")
+        if api_key in access_tokens:
+            logger.info(f"API key {api_key[:10]}... found in accessTokens")
+            return api_key
+        raise HTTPException(status_code=401, detail="Invalid API key")
+
+    # Check if user is enabled
+    if not db_user[4]:  # enabled column
+        reason = db_user[5] or "Account disabled"  # disable_reason column
+        raise HTTPException(status_code=403, detail=reason)
+
+    username = db_user[2]
+    logger.info(f"API key {api_key[:10]}... found in database for user {username}")
+    return api_key
 
 
 @router.post("/v1/chat/completions")
@@ -225,13 +253,17 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                 elapsed_time_pattern = re.compile(r" \(\d+s elapsed\)$")
 
                 try:
-                    async for partial in get_bot_response(protocol_messages, bot_name=request.model, api_key=poe_token,
+                    async for partial in get_bot_response(protocol_messages, 
+                                                          bot_name=request.model,
+                                                          api_key=poe_token,
                                                           session=proxy):
                         if partial and partial.text:
+                            # Skip status messages since client handles loading states
+                            if partial.text.strip() in ["Thinking...", "Generating image..."]:
+                                continue
+                                
                             base_content = elapsed_time_pattern.sub("", partial.text)
-                            
-                            # Skip any thinking or generating messages completely
-                            if base_content.strip() in ["Thinking...", "Generating image...", "Generating image"]:
+                            if last_sent_base_content == base_content:
                                 continue
 
                             total_response += base_content
@@ -357,8 +389,9 @@ async def initialize_tokens(tokens: List[str]):
 app.include_router(router)
 
 # Import the linuxdo router
-from auth import linuxdo
+from auth import auth, linuxdo
 app.include_router(linuxdo.router)
+app.include_router(auth.router)
 
 async def startup_event():
     if init_db() is None:
