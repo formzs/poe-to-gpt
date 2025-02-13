@@ -38,6 +38,10 @@ async def reset_api(request: Request):
     if not user[4]:  # If user is disabled
         raise HTTPException(status_code=403, detail=f"User disabled: {user[3]}")
 
-    new_key = reset_api_key(api_key)
+    user_id = user[0]
+    new_key = reset_api_key(user_id)
+
+    if not new_key:
+        raise HTTPException(status_code=500, detail="Failed to reset API key")
 
     return { "apiKey": new_key }

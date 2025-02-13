@@ -63,17 +63,11 @@
         const rolesTable = document.getElementById('roles-table').getElementsByTagName('tbody')[0];
 
         // Function to fetch and display users
-        async function fetchUsers() {
-            const token = localStorage.getItem('api_key'); // Retrieve the API key from localStorage
-            if (!token) {
-                alert('Unauthorized: No API key found. Please log in.');
-                return;
-            }
-
+        async function fetchUsers(oauthToken) {
             try {
                 const response = await fetch('/api/users', {
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${oauthToken}`
                     }
                 });
 
@@ -98,7 +92,7 @@
                     let toggleButton = document.createElement('button');
                     toggleButton.textContent = user.enabled ? 'Disable' : 'Enable';
                     toggleButton.onclick = async () => {
-                        await toggleUser(user.user_id, token);
+                        await toggleUser(user.user_id, oauthToken);
                     };
                     actionsCell.appendChild(toggleButton);
                 });
@@ -109,12 +103,12 @@
         }
 
         // Function to toggle user status
-        async function toggleUser(userId, token) {
+        async function toggleUser(userId, oauthToken) {
             try {
                 const response = await fetch(`/api/users/${userId}/toggle`, {
                     method: 'POST',
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${oauthToken}`
                     }
                 });
 
@@ -124,7 +118,7 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    fetchUsers(); // Refresh user list
+                    fetchUsers(oauthToken); // Refresh user list
                 } else {
                     alert('Failed to toggle user status.');
                 }
@@ -135,17 +129,11 @@
         }
 
         // Function to fetch and display roles
-        async function fetchRoles() {
-            const token = localStorage.getItem('api_key'); // Retrieve the API key from localStorage
-            if (!token) {
-                alert('Unauthorized: No API key found. Please log in.');
-                return;
-            }
-
+        async function fetchRoles(oauthToken) {
             try {
                 const response = await fetch('/api/roles', {
                     headers: {
-                        'Authorization': `Bearer ${token}`
+                        'Authorization': `Bearer ${oauthToken}`
                     }
                 });
 
@@ -172,16 +160,14 @@
 
         // Load data on page load
         window.onload = () => {
-            // Check if the API key exists in localStorage
-            const apiKey = localStorage.getItem('api_key');
-            if (!apiKey) {
-                alert('Unauthorized: No API key found. Please log in.');
-                window.location.href = '/'; // Redirect to the login page
+            const oauthToken = localStorage.getItem('oauthToken');
+            if (!oauthToken) {
+                alert('Unauthorized: No access token found. Please log in.');
+                window.location.href = '/';
                 return;
             }
-
-            fetchUsers();
-            fetchRoles();
+            fetchUsers(oauthToken);
+            fetchRoles(oauthToken);
         };
     </script>
 </body>

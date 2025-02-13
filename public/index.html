@@ -168,19 +168,20 @@
         'Authorization': 'Bearer ' + document.getElementById('api_key').value
       }
     })
-        .then(response => response.json())
-        .then(data => {
-            if (data.apiKey) {
-                showApiKeySection(data.apiKey);
-            } else {
-               console.error('Reset error:', data || 'API 密钥重置失败');
-                showToast(data.detail || 'API 密钥重置失败');
-            }
-        })
-        .catch(error => {
-            console.error('Reset error:', error)
-         }
-      );
+    .then(response => response.json())
+    .then(data => {
+        if (data.apiKey) {
+            showApiKeySection(data.apiKey);
+            localStorage.setItem('apiKey', data.apiKey); // Store API Key
+        } else {
+           console.error('Reset error:', data || 'API 密钥重置失败');
+            showToast(data.detail || 'API 密钥重置失败');
+        }
+    })
+    .catch(error => {
+        console.error('Reset error:', error)
+     }
+  );
  }
 
  // Function to parse query parameters from the URL
@@ -196,12 +197,15 @@
        return;
     }
     // Check that event.data is an object with expected properties
-    if (typeof event.data !== 'object' || (!event.data.apiKey && !event.data.error)) {
+    if (typeof event.data !== 'object' || (!event.data.apiKey && !event.data.oauth_token && !event.data.error)) {
        return;
     }
-    console.log('Received message:', event.data);
-    if (event.data.apiKey) {
+    
+    if (event.data.apiKey && event.data.oauth_token) {
+      // console.log('Received message:', event.data);
         showApiKeySection(event.data.apiKey);
+        localStorage.setItem('oauthToken', event.data.oauth_token); // Store OAuth Token
+        localStorage.setItem('apiKey', event.data.apiKey); // Store API Key
         if (authWindow && !authWindow.closed) {
             authWindow.close();
         }

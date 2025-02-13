@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException, Request, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
 from authlib.integrations.starlette_client import OAuth
@@ -6,7 +7,7 @@ import os
 import sys
 import logging
 # Import the database module and functions
-from database import (create_user, get_user_by_id, )
+from database import (create_user, get_user_by_id, update_linuxdo_token)
 import datetime
 import uuid
 from httpx import AsyncClient
@@ -91,7 +92,9 @@ async def authorize(request: Request):
             # Create a new user
             api_key = generate_api_key()
             user = create_user(user_id, api_key, username, access_token)
-        else:   
+        else:
+            # Update the user's linuxdo_token
+            update_linuxdo_token(user_id, access_token)
             api_key = user[1]
 
         # check if user is disabled
@@ -100,22 +103,18 @@ async def authorize(request: Request):
             raise HTTPException(status_code=403, detail=f'User is disabled: {user[5]}')
 
         # Check if the user is an admin
-        if user[8]:
-            # If admin, post message with apiKey and redirect to admin page
-            return HTMLResponse(f"""
-                <script>
-                    window.opener.postMessage({{ apiKey: '{api_key}', admin: true }}, window.location.origin);
-                    window.close();
-                </script>
-            """)
-        else:
-            # If not admin, post message with apiKey
-            return HTMLResponse(f"""
-                <script>
-                    window.opener.postMessage({{ apiKey: '{api_key}' }}, window.location.origin);
-                    window.close();
-                </script>
-            """)
+        res = {
+            "apiKey": api_key,
+            "oauth_token": access_token,
+            "admin": user[3]
+        }
+
+        return HTMLResponse(f"""
+            <script>
+                window.opener.postMessage({json.dumps(res)}, window.location.origin);
+                window.close();
+            </script>
+        """)
 
     except Exception as e:
         logger.error(f"OAuth authorization failed: {str(e)}")
