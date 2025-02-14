@@ -70,7 +70,7 @@ docker compose -f docker-compose-build.yml up -d --build
 请查看 [OpenAI 文档](https://platform.openai.com/docs/api-reference/chat/create) 以获取有关如何使用 ChatGPT API 的更多详细信息。
 
 只需在您的代码中将 `https://api.openai.com` 替换为 `http://localhost:3700` 即可开始使用。
-> 注意：请务必输入自定义 API 密钥（对应字段为 `config.toml` 中的 `accessTokens` ）
+> 注意：请务必输入自定义 API 密钥（对应字段为 `.env` 中的 `ACCESS_TOKENS` ）
 
 支持的路由：
 - /chat/completions

@@ -70,7 +70,7 @@ docker compose -f docker-compose-build.yml up -d --build
 Please refer to [OpenAI documentation](https://platform.openai.com/docs/api-reference/chat/create) for more details on how to use the ChatGPT API.
 
 Simply replace `https://api.openai.com` with `http://localhost:3700` in your code to start using it.
-> Note: Make sure to input your custom API key (corresponding to the `accessTokens` field in `config.toml`)
+> Note: Make sure to input your custom API key (corresponding to the `ACCESS_TOKENS` field in `.env`)
 
 Supported routes:
 - /chat/completions
