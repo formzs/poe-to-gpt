@@ -3,7 +3,7 @@ from pydantic import BaseModel
 import asyncio
 import uvicorn
 import os
-import toml
+from dotenv import load_dotenv
 import sys
 import logging
 import itertools
@@ -15,14 +15,38 @@ from fastapi.responses import StreamingResponse
 from fastapi_poe.types import ProtocolMessage
 from fastapi_poe.client import get_bot_response, get_final_response, QueryRequest, BotError
 
+# 加载环境变量
+load_dotenv()
+
 app = FastAPI()
 security = HTTPBearer()
 router = APIRouter()
 
-file_path = os.path.abspath(sys.argv[0])
-file_dir = os.path.dirname(file_path)
-config_path = os.path.join(file_dir, "config.toml")
-config = toml.load(config_path)
+# 从环境变量获取配置
+PORT = int(os.getenv("PORT", 3700))
+TIMEOUT = int(os.getenv("TIMEOUT", 120))
+PROXY = os.getenv("PROXY", "")
+
+# 解析JSON数组格式的环境变量
+def parse_json_env(env_name, default=None):
+    value = os.getenv(env_name)
+    if value:
+        try:
+            value = value.strip()
+            if not value.startswith('['):
+                if value.startswith('"') or value.startswith("'"):
+                    value = value[1:]
+                if value.endswith('"') or value.endswith("'"):
+                    value = value[:-1]
+            return json.loads(value)
+        except json.JSONDecodeError as e:
+            logger.warning(f"Failed to parse {env_name} as JSON: {str(e)}, using default value")
+            logger.debug(f"Attempted to parse value: {value}")
+    return default or []
+
+ACCESS_TOKENS = set(parse_json_env("ACCESS_TOKENS"))
+BOT_NAMES = parse_json_env("BOT_NAMES")
+POE_API_KEYS = parse_json_env("POE_API_KEYS")
 
 # 设置日志
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
@@ -30,21 +54,16 @@ logger = logging.getLogger(__name__)
 
 # 初始化代理
 proxy = None
-timeout = config.get("timeout", 120)  # 默认120秒超时
-if not config.get("proxy"):
-    proxy = AsyncClient(timeout=timeout)
+if not PROXY:
+    proxy = AsyncClient(timeout=TIMEOUT)
 else:
-    proxy = AsyncClient(proxy=config.get("proxy"), timeout=timeout)
-
-# 获取访问令牌列表
-access_tokens = set(config.get("accessTokens", []))
+    proxy = AsyncClient(proxy=PROXY, timeout=TIMEOUT)
 
 # 初始化客户端字典和API密钥循环
 client_dict = {}
 api_key_cycle = None
 
-bot_names = config.get("bot_names", [])
-bot_names_map = {name.lower(): name for name in bot_names}
+bot_names_map = {name.lower(): name for name in BOT_NAMES}
 
 
 class Message(BaseModel):
@@ -161,7 +180,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    if credentials.credentials not in access_tokens:
+    if credentials.credentials not in ACCESS_TOKENS:
         raise HTTPException(
             status_code=401,
             detail="Invalid API key",
@@ -311,7 +330,7 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
 @router.get("/models")
 @router.get("/v1/models")
 async def get_models():
-    model_list = [{"id": name, "object": "model", "type": "llm"} for name in bot_names]
+    model_list = [{"id": name, "object": "model", "type": "llm"} for name in BOT_NAMES]
     return {"data": model_list, "object": "list"}
 
 
@@ -340,7 +359,7 @@ async def main(tokens: List[str] = None):
         conf = uvicorn.Config(
             app,
             host="0.0.0.0",
-            port=config.get('port', 5100),
+            port=PORT,
             log_level="info"
         )
         server = uvicorn.Server(conf)
@@ -351,4 +370,4 @@ async def main(tokens: List[str] = None):
 
 
 if __name__ == "__main__":
-    asyncio.run(main(config.get("apikey", [])))
+    asyncio.run(main(POE_API_KEYS))

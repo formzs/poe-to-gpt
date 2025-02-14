@@ -2,7 +2,8 @@ version: '3'
 
 services:
   poe-to-gpt:
-    image: ghcr.io/formzs/poe-to-gpt:latest
+    build: .
+    image: poe-to-gpt:latest
     ports:
       - "3700:3700"
     env_file:

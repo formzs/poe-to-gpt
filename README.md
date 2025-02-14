@@ -29,8 +29,8 @@ pip install -r requirements.txt
 在项目的根目录中创建配置文件。指令已写在注释中：
 
 ```
-cp config.example.toml config.toml
-vim config.toml
+cp .env.example .env
+vim .env
 ```
 
 启动项目：
@@ -41,11 +41,28 @@ python app.py
 ```
 
 #### Docker （推荐）
+##### 方式一：使用本仓库构建好的 docker 镜像
 ```
-cp config.example.toml config.toml
-vim config.toml
-# 构建并启动容器，默认运行在端口 3700
+# 下载.env.example和docker-compose.yml文件到指定文件夹，例如：/usr/local/poe-to-gpt
+mkdir /usr/local/poe-to-gpt
+cd /usr/local/poe-to-gpt
+wget https://raw.githubusercontent.com/formzs/poe-to-gpt/refs/heads/main/docker-compose.yml
+wget https://raw.githubusercontent.com/formzs/poe-to-gpt/refs/heads/main/.env.example
+# 复制修改配置文件
+cp .env.example .env
+vim .env
+# 启动容器，默认运行在端口 3700
 docker-compose up -d
+```
+##### 方式二：自构建 docker 镜像
+```
+git clone https://github.com/formzs/poe-to-gpt.git
+cd poe-to-gpt/
+# 复制修改配置文件
+cp .env.example .env
+vim .env
+# 构建并启动，默认运行在端口 3700
+docker compose -f docker-compose-build.yml up -d --build
 ```
 
 ### 使用
@@ -58,210 +75,19 @@ docker-compose up -d
 支持的路由：
 - /chat/completions
 - /v1/chat/completions
-
-## 支持的模型参数（对应poe上机器人名称）。
-> 传参可忽略大小写
-
-Assistant
-
-GPT-3.5-Turbo
-
-GPT-3.5-Turbo-16k
-
-
-GPT-3.5-Turbo-lnstruct
-
-
-GPT-4o
-
-
-GPT-4o-128k
-
-
-GPT-4o-Mini
-
-
-GPT-4o-Mini-128k
-
-
-ChatGPT-4o-Latest
-
-
-ChatGPT-4o-Latest-128k
-
-
-GPT-4o-Aug-128k
-
-
-o1
-
-
-o1-mini
-
-
-o1-preview
-
-
-Claude-3.5-Sonnet
-
-
-Claude-3.5-Sonnet-200k
-
-
-Claude-3.5-Haiku
-
-
-Claude-3.5-Haiku-200k
-
-
-Claude-3.5-Sonnet-June
-
-
-Claude-3.5-Sonnet-June-200k
-
-
-Claude-3-opus
-
-
-Claude-3-opus-200k
-
-
-Claude-3-Sonnet
-
-
-Claude-3-Sonnet-200k
-
-
-Claude-3-Haiku
-
-
-Claude-3-Haiku-200k
-
-
-Gemini-2.0-Flash
-
-
-Gemini-1.5-Pro
-
-
-Gemini-1.5-Pro-Search
-
-
-Gemini-1.5-Pro-128k
-
-
-Gemini-1.5-Pro-2M
-
-
-Gemini-1.5-Flash
-
-
-Gemini-1.5-Flash-Search
-
-
-Gemini-1.5-Flash-128k
-
-
-Gemini-1.5-Flash-1M
-
-
-Grok-beta
-
-
-Qwen-QwQ-32b-preview
-
-
-Qwen-2.5-Coder-32B-T
-
-
-Qwen-2.5-72B-T
-
-
-Llama-3.1-405B
-
-
-Llama-3.1-405B-T
-
-
-Llama-3.1-405B-FP16
-
-
-Llama-3.1-405B-FW-128k
-
-
-Llama-3.1-70B
-
-
-Llama-3.1-70B-FP16
-
-
-Llama-3.1-70B-T-128k
-
-
-Llama-3.1-70B-FW-128k
-
-
-Llama-3.1-8B
-
-
-Llama-3.1-8B-FP16
-
-
-Llama-3.1-8B-T-128k
-
-
-DALL-E-3
-
-
-StableDiffusionXL
-
-
-StableDiffusion3.5-T
-
-
-StableDiffusion3.5-L
-
-
-StableDiffusion3
-
-
-SD3-Turbo
-
-
-FLUX-pro
-
-
-FLUX-pro-1.1
-
-
-FLUX-pro-1.1-T
-
-
-FLUX-pro-1.1-ultra
-
-
-FLUX-schnell
-
-
-FLUX-dev
-
-
-Luma-Photon
-
-
-Luma-Photon-Flash
-
-
-Playground-v3
-
-
-Ideogram-v2
-
-
-Imagen3
-
-
-Imagen3-Fast
+- /models
+- /v1/models
+
+## 支持的模型参数（对应poe上机器人名称可自行修改.env环境变量文件添加）。
+- GPT-4o
+- GPT-4o-Mini
+- GPT-3.5-Turbo
+- Claude-3.5-Sonnet
+- Claude-3-opus
+- Gemini-2.0-Pro
+- DeepSeek-R1
+- Deepseek-v3-T
+- DALL-E-3
 
 
 ## 鸣谢
