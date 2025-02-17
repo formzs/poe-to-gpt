@@ -1,10 +1,6 @@
 import logging
-import os
-import sys
-from config import config
 from fastapi import APIRouter, HTTPException, Request
-import toml
-from database import (get_user, reset_api_key)
+from database import (get_user, reset_api_key, get_db)
 
 
 
@@ -13,6 +9,22 @@ logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(level
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
+
+async def is_admin_user(request: Request) -> bool:
+    """Check if the user is an admin based on the OAuth token."""
+    oauth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    logger.info(f"Attempting to authenticate admin with OAuth token: {oauth_token[:10]}...")
+    if not oauth_token:
+        raise HTTPException(status_code=403, detail="需要管理员权限：缺少登录令牌")
+
+    try:
+        cursor = get_db().cursor()
+        cursor.execute("SELECT * FROM users WHERE linuxdo_token = %s", (oauth_token,))
+        user = cursor.fetchone()
+        return bool(user and user[4] and user[8])  # user[4] is enabled, user[8] is is_admin
+    except Exception as e:
+        logger.error(f"Database error in is_admin_user: {e}")
+        return False
 
 @router.post("/auth/reset")
 async def reset_api(request: Request):

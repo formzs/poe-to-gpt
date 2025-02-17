@@ -11,7 +11,7 @@ import logging
 import itertools
 import json
 from httpx import AsyncClient
-from fastapi import FastAPI, HTTPException, Depends, APIRouter
+from fastapi import FastAPI, HTTPException, Depends, APIRouter, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from fastapi.responses import StreamingResponse, FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -67,12 +67,29 @@ async def get_index():
     return FileResponse("public/index.html")
 
 
+async def check_admin(request: Request) -> bool:
+    """Check if user is logged in and is an admin."""
+    oauth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    if not oauth_token:
+        return False
+    
+    try:
+        cursor = get_db().cursor()
+        cursor.execute("SELECT * FROM users WHERE linuxdo_token = %s", (oauth_token,))
+        user = cursor.fetchone()
+        return bool(user and user[4] and user[8])  # user[4] is enabled, user[8] is is_admin
+    except Exception as e:
+        logger.error(f"Database error in check_admin: {e}")
+        return False
+
+from auth.auth import is_admin_user
+
 @app.get("/admin")
-async def get_admin_page():
-    return FileResponse("public/admin.html")
-
-
-
+async def get_admin_page(request: Request):
+    """Serve admin page if user is admin, otherwise serve login page."""
+    if await is_admin_user(request):
+        return FileResponse("public/admin.html")
+    return FileResponse("public/login.html")
 
 # 设置日志
 logging.basicConfig(level=logging.INFO,

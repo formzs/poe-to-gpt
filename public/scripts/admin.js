@@ -241,6 +241,35 @@ function checkAuthWindow() {
     }
 }
 
+// Immediately check if we're on the login page and initialize the login button
+if (document.querySelector('.login-page')) {
+    document.getElementById('login-button').addEventListener('click', function() {
+        const width = 600;
+        const height = 700;
+        const left = (window.innerWidth - width) / 2;
+        const top = (window.innerHeight - height) / 2;
+        const loginWindow = window.open(
+            '/auth/linuxdo',
+            'Login',
+            `width=${width},height=${height},left=${left},top=${top}`
+        );
+
+        window.addEventListener('message', function(event) {
+            if (event.origin !== window.location.origin) return;
+            
+            if (event.data.error) {
+                alert('登录失败：' + event.data.error);
+                return;
+            }
+
+            if (event.data.oauth_token) {
+                localStorage.setItem('oauth_token', event.data.oauth_token);
+                window.location.href = '/admin';
+            }
+        }, false);
+    });
+}
+
 // Initialization
 window.onload = () => {
     const adminToken = localStorage.getItem('adminOAuthToken');

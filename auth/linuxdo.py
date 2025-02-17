@@ -1,10 +1,8 @@
 import json
-from fastapi import APIRouter, Depends, HTTPException, Request, Form
-from fastapi.responses import RedirectResponse, HTMLResponse
+from fastapi import APIRouter, HTTPException, Request
+from fastapi.responses import HTMLResponse
 from authlib.integrations.starlette_client import OAuth
-import toml
-import os
-import sys
+
 import logging
 # Import the database module and functions
 from database import (create_user, get_user, update_linuxdo_token, is_admin)

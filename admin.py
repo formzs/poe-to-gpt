@@ -1,49 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Form
-from fastapi.responses import RedirectResponse, HTMLResponse
-from database import (get_user,  get_db, reset_api_key,
-                     get_all_users, disable_user, enable_user)
+from fastapi import APIRouter, Depends, HTTPException, Request
+from database import (get_user, get_db, reset_api_key,
+                      disable_user, enable_user)
 import logging
-from auth.linuxdo import verify_linuxdo_token
+from auth.auth import is_admin_user
 
-# Update router prefix to handle admin API routes
 router = APIRouter(prefix="/api")
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-async def is_admin_user(request: Request):
-    """Check if the user is an admin based on the OAuth token."""
-    oauth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    logger.info(f"Attempting to authenticate admin with OAuth token: {oauth_token[:10]}...")
-    if not oauth_token:
-        raise HTTPException(status_code=403, detail="需要管理员权限：缺少登录令牌")
-
-    # First verify the token with LinuxDO
-    if not await verify_linuxdo_token(oauth_token):
-        raise HTTPException(status_code=401, detail="访问令牌已过期或无效")
-
-    try:
-        cursor = get_db().cursor()
-        cursor.execute("SELECT * FROM users WHERE linuxdo_token = %s", (oauth_token,))
-        user = cursor.fetchone()
-    except Exception as e:
-        logger.error(f"Database error: {e}")
-        raise HTTPException(status_code=500, detail="数据库查询失败")
-
-    if not user:
-        raise HTTPException(status_code=403, detail="登录令牌无效，请重新登录")
-
-    # Check if user is enabled
-    if not user[4]:  # enabled column
-        reason = user[5] or "Account disabled"  # disable_reason column
-        raise HTTPException(status_code=403, detail=f"管理员账号已被禁用：{reason}")
-
-    if not user[8]:  # is_admin column
-        raise HTTPException(status_code=403, detail="权限不足：此账号不是管理员")
-
-    logger.info(f"Admin access granted to user: {user[2]}")
-    return True
 
 @router.post("/admin/reset-key/{user_id}")
 async def admin_reset_key(user_id: int, is_admin: bool = Depends(is_admin_user)):
