@@ -11,18 +11,9 @@ from database import (create_user, get_user, update_linuxdo_token, is_admin)
 import datetime
 import uuid
 from httpx import AsyncClient
+from config import config
 
 router = APIRouter()
-
-# Determine the project root directory
-file_path = os.path.abspath(sys.argv[0])
-file_dir = os.path.dirname(file_path)
-
-# Construct the path to the config.toml file
-config_path = os.path.join(file_dir, "config.toml")
-
-# Load the configuration
-config = toml.load(config_path)
 
 # LinuxDO OAuth Configuration
 base_url = config.get("base_url", "http://localhost:3700")  # Your application's base URL
@@ -112,9 +103,11 @@ async def authorize(request: Request):
             update_linuxdo_token(user[0], access_token)  # user[0] is user_id
             api_key = user[1]  # user[1] is api_key
 
-        # Check if user is disabled
+        # Check if user is disabled - keep original error message
         if not user[4]:  # user[4] is enabled status
-            raise HTTPException(status_code=403, detail=f'用户已被禁用：{user[5]}')
+            logger.warning(f"Disabled user attempted to login: {username}")
+            error_message = f"用户已被禁用：{user[5]}" if user[5] else "用户已被禁用"
+            raise HTTPException(status_code=401, detail=error_message)
 
         # Get admin status using their OAuth token
         admin_status = is_admin(access_token)
@@ -126,12 +119,38 @@ async def authorize(request: Request):
         }
 
         return HTMLResponse(f"""
-            <script>
-                window.opener.postMessage({json.dumps(res)}, window.location.origin);
-                window.close();
-            </script>
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>登录成功</title>
+                <script>
+                    if (window.opener) {{
+                        window.opener.postMessage({json.dumps(res)}, window.location.origin);
+                    }}
+                    window.close();
+                </script>
+            </head>
+            <body></body>
+            </html>
         """)
 
     except Exception as e:
         logger.error(f"OAuth authorization failed: {str(e)}")
-        raise HTTPException(status_code=400, detail=str(e))
+        error_res = {
+            "error": str(e)
+        }
+        return HTMLResponse(f"""
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <title>登录失败</title>
+                <script>
+                    if (window.opener) {{
+                        window.opener.postMessage({json.dumps(error_res)}, window.location.origin);
+                    }}
+                    window.close();
+                </script>
+            </head>
+            <body></body>
+            </html>
+        """)

@@ -1,21 +1,12 @@
 import logging
 import os
 import sys
-
+from config import config
 from fastapi import APIRouter, HTTPException, Request
 import toml
 from database import (get_user, reset_api_key)
 
-# Determine the project root directory
-file_path = os.path.abspath(sys.argv[0])
-file_dir = os.path.dirname(file_path)
 
-
-# Construct the path to the config.toml file
-config_path = os.path.join(file_dir, "config.toml")
-
-# Load the configuration
-config = toml.load(config_path)
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')

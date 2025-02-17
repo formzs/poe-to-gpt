@@ -7,16 +7,9 @@ from typing import Optional
 import psycopg2  # Import psycopg2
 from urllib.parse import urlparse
 import time
+from config import config
 
-# Determine the project root directory
-file_path = os.path.abspath(sys.argv[0])
-file_dir = os.path.dirname(file_path)
 
-# Construct the path to the config.toml file
-config_path = os.path.join(file_dir, "config.toml")
-
-# Load the configuration
-config = toml.load(config_path)
 
 # Database Configuration
 db_url = config.get("db_url", "postgresql://user:password@host/database")  # PostgreSQL database URL

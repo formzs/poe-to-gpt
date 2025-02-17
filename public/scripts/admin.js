@@ -1,209 +1,227 @@
-async function fetchData(url, options = {}) {
-    const token = localStorage.getItem('oauthToken');
-    const headers = {
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-    };
-
-    const config = {
-        ...options,
-        headers: headers
-    };
-
-    const response = await fetch(url, config);
-    if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.detail || '未知错误');
-    }
-    return await response.json();
-}
-
-async function toggleUserStatus(userId) {
-    return fetchData(`/api/users/${userId}/toggle`, {
-        method: 'POST'
-    });
-}
-
-async function fetchUsers() {
-    return fetchData('/api/users');
-}
+// Global variables and state
+let originalUsers = [];
+let currentSort = { field: null, direction: 'asc' };
+let currentPage = 1;
+const itemsPerPage = 10;
+let authWindow;
 
 const usersTable = document.getElementById('users-table').getElementsByTagName('tbody')[0];
 const adminPanel = document.getElementById('admin-panel');
 const loginButtonContainer = document.getElementById('login-button-container');
 const loginButton = document.getElementById('login-button');
 
-let authWindow;
+// Core API functions
+async function fetchData(url, options = {}) {
+    const token = localStorage.getItem('adminOAuthToken');
+    if (!token) {
+        updateVisibility(false);
+        return;
+    }
 
-// Simplified toast function
-function showToast(message) {
+    const headers = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+    };
+
+    const response = await fetch(url, { ...options, headers });
+    const data = await response.json();
+        
+    if (!response.ok) {
+        throw new Error(data.detail || '操作失败');
+    }
+
+    return data;
+}
+
+// UI State Management
+function showLoading() {
+    const existingOverlay = document.querySelector('.loading-overlay');
+    if (existingOverlay) return;
+
+    const loadingOverlay = document.createElement('div');
+    loadingOverlay.className = 'loading-overlay active';
+    loadingOverlay.innerHTML = `
+        <div class="loading-spinner"></div>
+        <div class="loading-text">加载中...</div>
+    `;
+    
+    const tableContainer = document.querySelector('.table-container');
+    if (tableContainer) {
+        tableContainer.appendChild(loadingOverlay);
+    }
+}
+
+function hideLoading() {
+    const loadingOverlay = document.querySelector('.loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.remove();
+    }
+}
+
+function showToast(message, type = 'info') {
     const existingToast = document.querySelector('.toast');
     if (existingToast) {
         existingToast.remove();
     }
 
     const toast = document.createElement('div');
-    toast.className = 'toast';
+    toast.className = `toast ${type}`;
     toast.textContent = message;
     document.body.appendChild(toast);
 
+    const delay = 3000;
     setTimeout(() => {
         toast.classList.add('fadeOut');
         setTimeout(() => toast.remove(), 300);
-    }, 3000);
+    }, delay);
 }
 
-// Function to fetch and display users
+// Data Management
 async function displayUsers() {
-    const oauthToken = localStorage.getItem('oauthToken');
     try {
-        const data = await fetchUsers();
-        usersTable.innerHTML = ''; // Clear existing data
-        data.users.forEach(user => {
-            let row = usersTable.insertRow();
-            row.classList.toggle('disabled-user', !user.enabled);
+        showLoading();
+        
+        // Build query parameters
+        const params = new URLSearchParams();
+        
+        // Add search parameter
+        const searchInput = document.getElementById('userSearch');
+        if (searchInput && searchInput.value) {
+            params.append('search', searchInput.value);
+        }
 
-            let usernameCell = row.insertCell(0);
-            let userIdCell = row.insertCell(1);
-            let createdAtCell = row.insertCell(2);
-            let lastUsedAtCell = row.insertCell(3);
-            let actionsCell = row.insertCell(4);
+        // Add status filter
+        const statusFilter = document.getElementById('statusFilter');
+        if (statusFilter && statusFilter.value && statusFilter.value !== 'all') {
+            params.append('status', statusFilter.value);
+        }
 
-            // Include admin star in username cell
-            usernameCell.innerHTML = `${user.is_admin ? '<span class="admin-star">★</span> ' : ''}${user.username}`;
-            userIdCell.textContent = user.user_id;
+        // Add admin filter
+        const adminFilter = document.getElementById('adminFilter');
+        if (adminFilter && adminFilter.value && adminFilter.value !== 'all') {
+            params.append('admin_filter', adminFilter.value);
+        }
 
-            // Format dates consistently
-            const dateTimeFormat = new Intl.DateTimeFormat('zh-CN', { // Adjust locale as needed
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: 'numeric',
-                minute: 'numeric',
-                second: 'numeric'
-            });
+        // Add sorting parameters
+        if (currentSort.field) {
+            params.append('sort_by', currentSort.field);
+            params.append('sort_dir', currentSort.direction);
+        }
 
-            let createdAt = 'N/A';
-            if (user.created_at && !isNaN(new Date(user.created_at))) {
-                createdAt = dateTimeFormat.format(new Date(user.created_at));
-            }
-            createdAtCell.textContent = createdAt;
-
-            let lastUsedAt = 'N/A';
-            if (user.last_used_at && !isNaN(new Date(user.last_used_at))) {
-                lastUsedAt = dateTimeFormat.format(new Date(user.last_used_at));
-            }
-            lastUsedAtCell.textContent = lastUsedAt;
-
-            // Create action dropdown menu
-            let actionMenu = document.createElement('div');
-            actionMenu.className = 'dropdown';
-            actionMenu.innerHTML = `
-                <button class="dropdown-btn">操作</button>
-                <ul class="dropdown-content" id="dropdown-${user.user_id}">
-                    <li><a href="#" data-action="toggleEnable">${user.enabled ? '禁用' : '启用'}</a></li>
-                    <li><a href="#" data-action="resetApiKey">重置密钥</a></li>
-                    <li><a href="#" data-action="toggleAdmin">${user.is_admin ? '取消管理员' : '设为管理员'}</a></li>
-                </ul>
-            `;
-            actionsCell.appendChild(actionMenu);
-
-            // Add click handlers for dropdown items
-            const dropdownContent = actionMenu.querySelector('.dropdown-content');
-            dropdownContent.addEventListener('click', async (e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const action = e.target.dataset.action;
-                if (!action) return;
-
-                try {
-                    switch (action) {
-                        case 'toggleEnable':
-                            await toggleUser(user.user_id);
-                            break;
-                        case 'resetApiKey':
-                            await resetApiKey(user.user_id);
-                            break;
-                        case 'toggleAdmin':
-                            await toggleAdmin(user.user_id, !user.is_admin);
-                            break;
-                    }
-                } catch (error) {
-                    showToast(error.message);
-                }
-            });
-        });
-
-        // Add global click handler to close dropdowns
-        document.addEventListener('click', (e) => {
-            if (!e.target.closest('.dropdown')) {
-                document.querySelectorAll('.dropdown-content').forEach(content => {
-                    content.style.display = 'none';
-                });
+        const data = await fetchData(`/api/users?${params.toString()}`);
+        originalUsers = data.users;
+        
+        // Update sort indicators after getting new data
+        document.querySelectorAll('th.sortable').forEach(header => {
+            header.classList.remove('sort-asc', 'sort-desc');
+            if (header.dataset.sort === currentSort.field) {
+                header.classList.add(`sort-${currentSort.direction}`);
             }
         });
+        
+        renderUsers(originalUsers);
+        updatePagination(originalUsers.length);
     } catch (error) {
         console.error('获取用户失败:', error);
-        if (error.message.includes('权限不足')) {
-            showToast('权限不足：您需要管理员权限访问此页面');
-            updateVisibility(false);  // Hide admin panel
-        } else {
-            showToast('获取用户失败: ' + error.message);
+        showToast(error.message, 'error');
+        
+        if (error.message.includes('已被禁用') || error.message.includes('权限不足')) {
+            showToast('您的账号已被禁用或权限不足，即将退出登录');
+            setTimeout(() => {
+                localStorage.clear();
+                window.location.href = '/';
+            }, 2000);
+            return;
         }
+    } finally {
+        hideLoading();
     }
 }
 
-// Function to toggle user status
-async function toggleUser(userId) {
-    const oauthToken = localStorage.getItem('oauthToken');
-    try {
-        const data = await toggleUserStatus(userId, {
-            headers: {
-                'Authorization': `Bearer ${oauthToken}`
-            }
-        });
-        if (data.success) {
-            displayUsers(); // Refresh user list
-            showToast('用户状态已更新');
-        } else {
-            showToast('切换用户状态失败');
-        }
-    } catch (error) {
-        console.error('切换用户状态失败:', error);
-        showToast(error.message.includes('权限不足')
-            ? '权限不足：只有管理员可以启用/禁用用户'
-            : '切换用户状态失败: ' + error.message);
-    }
-}
-
+// User Actions
 async function toggleAdmin(userId, isAdmin) {
     try {
+        showLoading();
         const response = await fetchData(`/api/admin/toggle-admin/${userId}`, {
             method: 'POST',
             body: JSON.stringify({ is_admin: isAdmin })
         });
-        if (response.success) {
-            showToast('管理员状态已更新');
-        }
+        showToast(response.message);
+        await displayUsers();
     } catch (error) {
-        console.error('更新管理员状态失败:', error);
-        showToast(error.message.includes('权限不足') 
-            ? '权限不足：只有管理员可以修改管理员状态' 
-            : '更新失败: ' + error.message);
-        // Revert checkbox state
-        const checkbox = document.querySelector(`#admin-${userId}`);
-        if (checkbox) checkbox.checked = !isAdmin;
+        showToast(error.message, 'error');
+    } finally {
+        hideLoading();
     }
 }
 
-function updateVisibility(isLoggedIn) {
-    if (isLoggedIn) {
-        adminPanel.style.display = 'block';
-        loginButtonContainer.style.display = 'none';
-    } else {
-        adminPanel.style.display = 'none';
-        loginButtonContainer.style.display = 'block';
+async function enableUser(userId) {
+    try {
+        showLoading();
+        const response = await fetchData(`/api/admin/enable/${userId}`, {
+            method: 'POST'
+        });
+        showToast(response.message);
+        await displayUsers();
+    } catch (error) {
+        showToast(error.message, 'error');
+    } finally {
+        hideLoading();
     }
+}
+
+async function resetApiKey(userId) {
+    try {
+        showLoading();
+        const response = await fetchData(`/api/admin/reset-key/${userId}`, {
+            method: 'POST'
+        });
+        showToast(response.message);
+        await displayUsers();
+    } catch (error) {
+        showToast(error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+async function submitDisable() {
+    const userId = document.getElementById('userToDisable').value;
+    const commonReasons = document.getElementById('commonReasons');
+    const disableReason = document.getElementById('disableReason');
+    
+    let reason = commonReasons.value === 'custom' ? disableReason.value : commonReasons.value;
+    reason = reason.trim();
+    
+    if (!reason) {
+        showToast('请输入或选择禁用原因', 'error');
+        return;
+    }
+
+    try {
+        showLoading();
+        const response = await fetchData(`/api/admin/disable/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ reason: reason })
+        });
+
+        closeModal();
+        showToast(response.message);
+        await displayUsers(); // This will handle logout if user disabled themselves
+    } catch (error) {
+        showToast(error.message, 'error');
+    } finally {
+        hideLoading();
+    }
+}
+
+// Authentication Functions
+function updateVisibility(isLoggedIn) {
+    adminPanel.style.display = isLoggedIn ? 'block' : 'none';
+    loginButtonContainer.style.display = isLoggedIn ? 'none' : 'block';
 }
 
 function login() {
@@ -212,55 +230,49 @@ function login() {
     checkAuthWindow();
 }
 
-// Add window check function
 function checkAuthWindow() {
     if (authWindow && !authWindow.closed) {
-        // If window is still open after 2 minutes, close it
         setTimeout(() => {
             if (authWindow && !authWindow.closed) {
                 authWindow.close();
-                showToast("登录超时 - 请重试");  // Removed warning type
+                showToast("登录超时 - 请重试");
             }
         }, 120000);
     }
 }
 
-// Load data on page load
+// Initialization
 window.onload = () => {
-    const oauthToken = localStorage.getItem('oauthToken');
-    if (!oauthToken) {
+    const adminToken = localStorage.getItem('adminOAuthToken');
+    if (!adminToken) {
         updateVisibility(false);
-        loginButton.addEventListener('click', () => {
-            login();
-        });
+        loginButton.addEventListener('click', login);
         return;
     }
 
     updateVisibility(true);
-    displayUsers()
-        .catch(error => {
-            console.error("Failed to load data:", error);
-            updateVisibility(false);
-        });
-
-    loginButton.addEventListener('click', () => {
-        login();
+    displayUsers().catch(error => {
+        console.error("Failed to load data:", error);
+        localStorage.removeItem('adminOAuthToken');
+        updateVisibility(false);
     });
+
+    initializeTable();
+    loginButton.addEventListener('click', login);
 };
 
-// Improved window message handling with stricter source verification
+// Event Listeners
 window.addEventListener('message', function(event) {
-    // Check event origin and ensure the message is from the opened authWindow
     if (event.origin !== window.location.origin || event.source !== authWindow) {
         return;
     }
-    // Check that event.data is an object with expected properties
+    
     if (typeof event.data !== 'object' || (!event.data.apiKey && !event.data.oauth_token && !event.data.error)) {
         return;
     }
 
-    if (event.data.apiKey && event.data.oauth_token) {
-        localStorage.setItem('oauthToken', event.data.oauth_token); // Store OAuth Token
+    if (event.data.oauth_token) {
+        localStorage.setItem('adminOAuthToken', event.data.oauth_token);
         updateVisibility(true);
         displayUsers();
         if (authWindow && !authWindow.closed) {
@@ -271,9 +283,335 @@ window.addEventListener('message', function(event) {
         const errorMsg = event.data.error.includes('权限不足') 
             ? '登录失败：此账号没有管理员权限' 
             : event.data.error;
-        showToast(errorMsg);
+        showToast(errorMsg, 'error');
         if (authWindow && !authWindow.closed) {
             authWindow.close();
         }
     }
 });
+
+// Function to toggle user status
+async function toggleUser(userId, currentStatus) {
+    if (currentStatus) {
+        // If user is enabled, show disable modal
+        showDisableModal(userId);
+    } else {
+        // If user is disabled, enable directly
+        try {
+            const response = await fetch(`/api/admin/enable/${userId}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${localStorage.getItem('adminOAuthToken')}`
+                }
+            });
+            if (response.ok) {
+                showToast('用户已启用');
+                displayUsers();
+            } else {
+                const data = await response.json();
+                showToast(data.detail || '操作失败', 'error');
+            }
+        } catch (error) {
+            showToast('操作失败: ' + error.message, 'error');
+        }
+    }
+}
+
+function showDisableModal(userId) {
+    const modal = document.getElementById('disableModal');
+    const userToDisable = document.getElementById('userToDisable');
+    const commonReasons = document.getElementById('commonReasons');
+    const disableReason = document.getElementById('disableReason');
+    
+    modal.style.display = 'block';
+    userToDisable.value = userId;
+    commonReasons.value = '';
+    disableReason.value = '';
+    disableReason.style.display = 'none'; // Hide custom input initially
+}
+
+function updateReasonInput() {
+    const commonReasons = document.getElementById('commonReasons');
+    const disableReason = document.getElementById('disableReason');
+    
+    if (commonReasons.value === 'custom') {
+        disableReason.style.display = 'block';
+        disableReason.value = '';
+        disableReason.focus();
+    } else {
+        disableReason.style.display = commonReasons.value ? 'none' : 'block';
+        disableReason.value = commonReasons.value;
+    }
+}
+
+// Add event listener to close modal when clicking outside
+window.onclick = function(event) {
+    const modal = document.getElementById('disableModal');
+    if (event.target === modal) {
+        closeModal();
+    }
+}
+
+function closeModal() {
+    const modal = document.getElementById('disableModal');
+    const disableReason = document.getElementById('disableReason');
+    const commonReasons = document.getElementById('commonReasons');
+    
+    modal.style.display = 'none';
+    disableReason.value = '';
+    commonReasons.value = '';
+}
+
+async function renderUsers(users) {
+    const tbody = document.querySelector('#users-table tbody');
+    tbody.innerHTML = '';
+
+    if (!users || users.length === 0) {
+        tbody.innerHTML = `
+            <tr>
+                <td colspan="5" class="no-results">没有找到匹配的用户</td>
+            </tr>
+        `;
+        return;
+    }
+
+    users.forEach(user => {
+        const row = document.createElement('tr');
+        if (!user.enabled) {
+            row.classList.add('disabled-user');
+            const tooltipText = user.disable_reason ? 
+                              `禁用原因: ${user.disable_reason}` : 
+                              '用户已被禁用';
+            row.setAttribute('data-tooltip', tooltipText);
+        }
+
+        row.innerHTML = `
+            <td>
+                <span class="admin-star${user.is_admin ? ' active' : ''}" 
+                      onclick="toggleAdmin(${user.user_id}, ${!user.is_admin})"
+                      title="${user.is_admin ? '点击撤销管理员权限' : '点击赋予管理员权限'}">
+                    ${user.is_admin ? '⭐' : '☆'}
+                </span>
+                ${user.username || '-'}
+            </td>
+            <td>${user.user_id}</td>
+            <td>${formatDate(user.created_at)}</td>
+            <td>${user.last_used_at ? formatDate(user.last_used_at) : '-'}</td>
+            <td class="dropdown">
+                <button class="dropdown-btn">操作</button>
+                <div class="dropdown-content">
+                    <a href="#" onclick="resetApiKey(${user.user_id}); return false;">重置 API 密钥</a>
+                    ${user.enabled ? 
+                        `<a href="#" onclick="showDisableModal(${user.user_id}); return false;">禁用用户</a>` :
+                        `<a href="#" onclick="enableUser(${user.user_id}); return false;">启用用户</a>`
+                    }
+                </div>
+            </td>
+        `;
+
+        tbody.appendChild(row);
+    });
+
+    updatePagination(users.length);
+}
+
+async function toggleAdminStatus(userId, newStatus) {
+    try {
+        const response = await fetch(`/api/admin/toggle-admin/${userId}`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${getOAuthToken()}`
+            },
+            body: JSON.stringify({ is_admin: newStatus })
+        });
+
+        if (!response.ok) {
+            const error = await response.json();
+            throw new Error(error.detail || '操作失败');
+        }
+
+        // Refresh the user list to show updated status
+        fetchUsers();
+    } catch (error) {
+        alert(error.message);
+    }
+}
+
+function populateTable(users) {
+    const tableBody = document.querySelector('#users-table tbody');
+    tableBody.innerHTML = ''; // Clear existing rows
+
+    users.forEach(user => {
+        const row = tableBody.insertRow();
+
+        // Add class and tooltip for disabled users
+        if (!user.enabled) {
+            row.classList.add('disabled-user');
+            row.setAttribute('data-tooltip', user.disable_reason || '用户已被禁用');
+        }
+
+        row.insertCell().textContent = user.username;
+        row.insertCell().textContent = user.user_id;
+        row.insertCell().textContent = new Date(user.created_at).toLocaleString();
+        row.insertCell().textContent = user.last_used_at ? new Date(user.last_used_at).toLocaleString() : 'N/A';
+
+        // Create dropdown for actions
+        const actionsCell = row.insertCell();
+        actionsCell.className = 'dropdown';
+        const dropdownBtn = document.createElement('button');
+        dropdownBtn.className = 'dropdown-btn';
+        dropdownBtn.textContent = '操作';
+        actionsCell.appendChild(dropdownBtn);
+
+        const dropdownContent = document.createElement('div');
+        dropdownContent.className = 'dropdown-content';
+
+        // Reset API Key action
+        const resetKeyLink = document.createElement('a');
+        resetKeyLink.href = '#';
+        resetKeyLink.textContent = '重置 API 密钥';
+        resetKeyLink.onclick = function() {
+            resetApiKey(user.user_id);
+            return false;
+        };
+        dropdownContent.appendChild(resetKeyLink);
+
+        // Disable/Enable action
+        const disableEnableLink = document.createElement('a');
+        disableEnableLink.href = '#';
+        disableEnableLink.textContent = user.enabled ? '禁用用户' : '启用用户';
+        disableEnableLink.onclick = function() {
+            if (user.enabled) {
+                openDisableModal(user.user_id);
+            } else {
+                enableUser(user.user_id);
+            }
+            return false;
+        };
+        dropdownContent.appendChild(disableEnableLink);
+
+        // Toggle Admin action
+        const toggleAdminLink = document.createElement('a');
+        toggleAdminLink.href = '#';
+        toggleAdminLink.textContent = user.is_admin ? '撤销管理员权限' : '赋予管理员权限';
+        toggleAdminLink.onclick = function() {
+            toggleAdmin(user.user_id, !user.is_admin);
+            return false;
+        };
+        dropdownContent.appendChild(toggleAdminLink);
+
+        actionsCell.appendChild(dropdownContent);
+    });
+}
+
+function sortData(field) {
+    const headers = document.querySelectorAll('th.sortable');
+    headers.forEach(header => {
+        if (header.dataset.sort === field) {
+            // If clicking same field, toggle direction
+            if (currentSort.field === field) {
+                currentSort.direction = currentSort.direction === 'asc' ? 'desc' : 'asc';
+            } else {
+                // If clicking new field, set to asc and remove other indicators
+                currentSort.field = field;
+                currentSort.direction = 'asc';
+                headers.forEach(h => {
+                    if (h !== header) {
+                        h.classList.remove('sort-asc', 'sort-desc');
+                    }
+                });
+            }
+            
+            // Update current header's indicator
+            header.classList.remove('sort-asc', 'sort-desc');
+            header.classList.add(`sort-${currentSort.direction}`);
+        }
+    });
+
+    displayUsers();
+}
+
+function filterData() {
+    displayUsers();
+}
+
+function updatePagination(totalItems) {
+    const totalPages = Math.ceil(totalItems / itemsPerPage);
+    document.getElementById('currentPage').textContent = currentPage;
+    document.getElementById('totalPages').textContent = totalPages;
+    document.getElementById('totalItems').textContent = totalItems;
+    
+    document.getElementById('prevPage').disabled = currentPage === 1;
+    document.getElementById('nextPage').disabled = currentPage === totalPages;
+}
+
+// Initialize sort and pagination events
+document.addEventListener('DOMContentLoaded', () => {
+    // Add click events for sorting
+    document.querySelectorAll('th.sortable').forEach(header => {
+        header.addEventListener('click', () => {
+            sortData(header.dataset.sort);
+        });
+    });
+
+    // Add pagination events
+    const prevButton = document.getElementById('prevPage');
+    const nextButton = document.getElementById('nextPage');
+
+    if (prevButton) {
+        prevButton.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                filterAndSortData();
+            }
+        });
+    }
+
+    if (nextButton) {
+        nextButton.addEventListener('click', () => {
+            const totalPages = Math.ceil(originalUsers.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                filterAndSortData();
+            }
+        });
+    }
+});
+
+// Utility function to format dates
+function formatDate(dateString) {
+    if (!dateString) return '-';
+    const date = new Date(dateString);
+    return date.toLocaleString('zh-CN', {
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit'
+    });
+}
+
+function initializeTable() {
+    // Add sort listeners
+    document.querySelectorAll('th.sortable').forEach(header => {
+        // Remove old click listeners first to prevent duplicates
+        header.removeEventListener('click', () => sortData(header.dataset.sort));
+        header.addEventListener('click', () => sortData(header.dataset.sort));
+    });
+
+    // Safely add filter listeners
+    const searchInput = document.getElementById('userSearch');
+    const statusFilter = document.getElementById('statusFilter');
+    const adminFilter = document.getElementById('adminFilter');
+
+    if (searchInput) {
+        searchInput.addEventListener('input', filterData);
+    }
+    if (statusFilter) {
+        statusFilter.addEventListener('change', filterData);
+    }
+    if (adminFilter) {
+        adminFilter.addEventListener('change', filterData);
+    }
+}

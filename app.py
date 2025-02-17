@@ -21,11 +21,38 @@ from fastapi_poe.types import ProtocolMessage
 from fastapi_poe.client import get_bot_response, get_final_response, QueryRequest, BotError
 # Import the database functions
 from database import init_db, get_db, close_db, get_user
+from config import config
+import secrets
 
+class AppState:
+    def __init__(self):
+        self.proxy = None
+        self.client_dict = {}
+        self.api_key_cycle = None
+        self.bot_names = config.get("bot_names", [])
+        self.bot_names_map = {name.lower(): name for name in self.bot_names}
+        self.access_tokens = set(config.get("accessTokens", []))
 
+    async def cleanup(self):
+        """Clean up resources"""
+        if self.proxy:
+            await self.proxy.aclose()
+            self.proxy = None
+        self.client_dict.clear()
+        self.api_key_cycle = None
+
+# Global variables
 app = FastAPI()
+app.state = AppState()
 security = HTTPBearer()
 router = APIRouter()
+
+# Add SessionMiddleware with secret from config
+app.add_middleware(
+    SessionMiddleware, 
+    secret_key=config.get("session_secret", secrets.token_urlsafe(32)),
+    max_age=3600
+)
 
 # Mount static files directory
 app.mount("/styles", StaticFiles(directory="public/styles"), name="styles")
@@ -45,38 +72,12 @@ async def get_admin_page():
     return FileResponse("public/admin.html")
 
 
-@app.get("/login")
-async def get_login_page():
-    return FileResponse("public/login.html")
 
-file_path = os.path.abspath(sys.argv[0])
-file_dir = os.path.dirname(file_path)
-config_path = os.path.join(file_dir, "config.toml")
-config = toml.load(config_path)
 
 # 设置日志
 logging.basicConfig(level=logging.INFO,
                     format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-# 初始化代理
-proxy = None
-timeout = config.get("timeout", 120)  # 默认120秒超时
-if not config.get("proxy"):
-    proxy = AsyncClient(timeout=timeout)
-else:
-    proxy = AsyncClient(proxy=config.get("proxy"), timeout=timeout)
-
-# 获取访问令牌列表
-access_tokens = set(config.get("accessTokens", []))
-
-# 初始化客户端字典和API密钥循环
-client_dict = {}
-api_key_cycle = None
-
-bot_names = config.get("bot_names", [])
-bot_names_map = {name.lower(): name for name in bot_names}
-
 
 class Message(BaseModel):
     role: str
@@ -112,12 +113,11 @@ db_conn = None
 
 
 async def add_token(token: str):
-    global api_key_cycle
     if not token:
         logger.error("Empty token provided")
         return "failed: empty token"
 
-    if token not in client_dict:
+    if token not in app.state.client_dict:
         try:
             logger.info(f"Attempting to add apikey: {token[:6]}...")  # 只记录前6位
             request = CompletionRequest(
@@ -127,8 +127,8 @@ async def add_token(token: str):
             )
             ret = await get_responses(request, token)
             if ret == "OK":
-                client_dict[token] = token
-                api_key_cycle = itertools.cycle(client_dict.values())
+                app.state.client_dict[token] = token
+                app.state.api_key_cycle = itertools.cycle(app.state.client_dict.values())
                 logger.info(f"apikey added successfully: {token[:6]}...")
                 return "ok"
             else:
@@ -154,8 +154,8 @@ async def get_responses(request: CompletionRequest, token: str):
         raise HTTPException(status_code=400, detail="Token is required")
 
     model_lower = request.model.lower()
-    if model_lower in bot_names_map:
-        request.model = bot_names_map[model_lower]
+    if model_lower in app.state.bot_names_map:
+        request.model = app.state.bot_names_map[model_lower]
         message = [
             ProtocolMessage(role=msg.role if msg.role in [
                             "user", "system"] else "bot", content=msg.content)
@@ -177,7 +177,7 @@ async def get_responses(request: CompletionRequest, token: str):
             **additional_params
         )
         try:
-            return await get_final_response(query, bot_name=request.model, api_key=token, session=proxy)
+            return await get_final_response(query, bot_name=request.model, api_key=token, session=app.state.proxy)
         except Exception as e:
             logger.error(f"Error in get_final_response: {str(e)}")
             raise HTTPException(status_code=500, detail=str(e))
@@ -204,7 +204,7 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
     db_user = get_user(api_key=api_key)
     if not db_user:
         logger.warning(f"API key {api_key[:10]}... not found in database")
-        if api_key in access_tokens:
+        if api_key in app.state.access_tokens:
             logger.info(f"API key {api_key[:10]}... found in accessTokens")
             return api_key
         raise HTTPException(status_code=401, detail="Invalid API key")
@@ -233,7 +233,7 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
             username = db_user[2]  # Assuming username is the third column
             logger.debug(
                 f"Found username {username} for API key {token[:10]}...")
-        elif token in access_tokens:
+        elif token in app.state.access_tokens:
             username = "access_token_user"
 
         logger.debug(f"Found username {username} for API key {token[:10]}...")
@@ -245,23 +245,23 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
         logger.info(
             f"Request [{request_id}]: {json.dumps(safe_request, ensure_ascii=False)}")
 
-        if not api_key_cycle:
+        if not app.state.api_key_cycle:
             raise HTTPException(
                 status_code=500, detail="No valid API tokens available")
 
         model_lower = request.model.lower()
-        if model_lower not in bot_names_map:
+        if model_lower not in app.state.bot_names_map:
             raise HTTPException(
                 status_code=400, detail=f"Model {request.model} not found")
 
-        request.model = bot_names_map[model_lower]
+        request.model = app.state.bot_names_map[model_lower]
 
         protocol_messages = [
             ProtocolMessage(role=msg.role if msg.role in [
                             "user", "system"] else "bot", content=msg.content)
             for msg in request.messages
         ]
-        poe_token = next(api_key_cycle)
+        poe_token = next(app.state.api_key_cycle)
 
         if request.stream:
             import re
@@ -275,7 +275,7 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                     async for partial in get_bot_response(protocol_messages,
                                                           bot_name=request.model,
                                                           api_key=poe_token,
-                                                          session=proxy):
+                                                          session=app.state.proxy):
                         if partial and partial.text:
                             # Skip status messages since client handles loading states
                             if partial.text.strip() in ["Thinking...", "Generating image..."]:
@@ -393,7 +393,7 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
 @router.get("/v1/models")
 async def get_models():
     model_list = [{"id": name, "object": "model", "type": "llm"}
-                  for name in bot_names]
+                  for name in app.state.bot_names]
     return {"data": model_list, "object": "list"}
 
 
@@ -404,14 +404,13 @@ async def initialize_tokens(tokens: List[str]):
     else:
         for token in tokens:
             await add_token(token)
-        if not client_dict:
+        if not app.state.client_dict:
             logger.error("No valid tokens were added.")
             sys.exit(1)
         else:
-            global api_key_cycle
-            api_key_cycle = itertools.cycle(client_dict.values())
+            app.state.api_key_cycle = itertools.cycle(app.state.client_dict.values())
             logger.info(
-                f"Successfully initialized {len(client_dict)} API tokens")
+                f"Successfully initialized {len(app.state.client_dict)} API tokens")
 
 
 app.include_router(router)
@@ -421,25 +420,54 @@ app.include_router(linuxdo.router)
 app.include_router(auth.router)
 app.include_router(admin_router)
 
-
+# Combine startup events into one
+@app.on_event("startup")
 async def startup_event():
+    # Initialize database
     if init_db() is None:
         logger.error("Failed to connect to database during startup")
         sys.exit(1)
 
-app.add_event_handler("startup", startup_event)
+    # Initialize proxy
+    timeout = config.get("timeout", 120)
+    app.state.proxy = AsyncClient(timeout=timeout) if not config.get("proxy") else AsyncClient(proxy=config.get("proxy"), timeout=timeout)
 
+    # Initialize POE tokens
+    tokens = config.get("apikey", [])
+    if not tokens:
+        logger.warning("No POE API tokens configured")
+    else:
+        try:
+            for token in tokens:
+                result = await add_token(token)
+                if result == "ok":
+                    logger.info(f"Successfully added POE token: {token[:6]}...")
+                elif result == "failed":
+                    logger.error(f"Failed to add POE token: {token[:6]}...")
+            
+            if not app.state.client_dict:
+                logger.warning("No valid POE tokens were added")
+            else:
+                app.state.api_key_cycle = itertools.cycle(app.state.client_dict.values())
+                logger.info(f"Successfully initialized {len(app.state.client_dict)} POE tokens")
+        except Exception as e:
+            logger.error(f"Error initializing POE tokens: {e}")
 
+@app.on_event("shutdown")
 async def shutdown_event():
+    await app.state.cleanup()
     close_db()
-    logger.info("Database connection closed")
+    logger.info("Shutdown complete")
 
-app.add_event_handler("shutdown", shutdown_event)
-
-
-async def main(tokens: List[str] = None):
+# Keep both startup methods
+async def main():
+    """Entry point for Docker and production deployment"""
     try:
+        # Initialize tokens before starting server
+        tokens = config.get("apikey", [])
         await initialize_tokens(tokens)
+        
+        # Configure uvicorn
         conf = uvicorn.Config(
             app,
             host="0.0.0.0",
@@ -452,6 +480,6 @@ async def main(tokens: List[str] = None):
         logger.error(f"Failed to start server: {str(e)}")
         sys.exit(1)
 
-
+# Simplify the entry point to just use main()
 if __name__ == "__main__":
-    asyncio.run(main(config.get("apikey", [])))
+    asyncio.run(main())
