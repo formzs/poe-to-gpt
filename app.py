@@ -85,7 +85,7 @@ class CompletionRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "model": "gpt-3.5-turbo",
+                "model": "GPT-3.5-Turbo",
                 "messages": [
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": "Hello!"}
@@ -105,7 +105,7 @@ async def add_token(token: str):
         try:
             logger.info(f"Attempting to add apikey: {token[:6]}...")  # 只记录前6位
             request = CompletionRequest(
-                model="gpt-3.5-turbo",
+                model="GPT-3.5-Turbo",
                 messages=[Message(role="user", content="Please return 'OK'")],
                 temperature=0.7
             )
