@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/styles/styles.css">
 </head>
 <body class="admin-page">
-    <div id="admin-panel" class="admin-container">
+    <div id="admin-panel" class="admin-container" style="display: none;">
         <h1>POE-TO-GPT 管理面板</h1>
         
         <!-- Controls -->
@@ -78,6 +78,14 @@
         </div>
     </div>
 
+
+    <div class="login-container" style="display: block;">
+        <h1 class="login-title">管理员登录</h1>
+        <button id="login-button" class="login-button">
+            <img src="https://linux.do/uploads/default/original/3X/9/d/9dd49731091ce8656e94433a26a3ef36062b3994.png" alt="LinuxDO">
+            使用 LinuxDO OAuth 登录
+        </button>
+    </div>
     <script src="/scripts/admin.js"></script>
 </body>
 </html>

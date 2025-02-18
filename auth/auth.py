@@ -8,22 +8,41 @@ from database import (get_user, reset_api_key, get_db)
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
+
+
 router = APIRouter()
 
-async def is_admin_user(request: Request) -> bool:
-    """Check if the user is an admin based on the OAuth token."""
+async def is_admin_user(request: Request, block: bool = True) -> bool:
+    """
+    Check if the user is an admin based on the OAuth token.
+    
+    Args:
+        request: The FastAPI request object
+        block: If True (default), blocks non-admins with HTTPException. If False, returns False instead.
+    """
     oauth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    logger.info(f"Attempting to authenticate admin with OAuth token: {oauth_token[:10]}...")
+    
     if not oauth_token:
-        raise HTTPException(status_code=403, detail="需要管理员权限：缺少登录令牌")
+        if block:
+            raise HTTPException(status_code=403, detail="需要管理员权限：缺少登录令牌")
+        return False
 
+    logger.info(f"Attempting to authenticate admin with OAuth token: {oauth_token[:10]}...")
+    
     try:
         cursor = get_db().cursor()
         cursor.execute("SELECT * FROM users WHERE linuxdo_token = %s", (oauth_token,))
         user = cursor.fetchone()
-        return bool(user and user[4] and user[8])  # user[4] is enabled, user[8] is is_admin
+        is_admin = bool(user and user[4] and user[8])  
+        
+        if not is_admin and block:
+            raise HTTPException(status_code=403, detail="需要管理员权限")
+        
+        return is_admin
     except Exception as e:
         logger.error(f"Database error in is_admin_user: {e}")
+        if block:
+            raise HTTPException(status_code=500, detail="数据库查询失败")
         return False
 
 @router.post("/auth/reset")

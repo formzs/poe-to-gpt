@@ -20,9 +20,11 @@ from starlette.middleware.sessions import SessionMiddleware
 from fastapi_poe.types import ProtocolMessage
 from fastapi_poe.client import get_bot_response, get_final_response, QueryRequest, BotError
 # Import the database functions
-from database import init_db, get_db, close_db, get_user
+from database import init_db, close_db, get_user
+from auth.auth import is_admin_user
 from config import config
 import secrets
+from contextlib import asynccontextmanager
 
 class AppState:
     def __init__(self):
@@ -35,14 +37,69 @@ class AppState:
 
     async def cleanup(self):
         """Clean up resources"""
-        if self.proxy:
-            await self.proxy.aclose()
-            self.proxy = None
-        self.client_dict.clear()
-        self.api_key_cycle = None
+        try:
+            if self.proxy:
+                await self.proxy.aclose()
+                self.proxy = None
+            
+            # Clear the client dictionary
+            self.client_dict.clear()
+            self.api_key_cycle = None
+            
+            logger.info("Successfully cleaned up AppState resources")
+        except Exception as e:
+            logger.error(f"Error during AppState cleanup: {e}")
 
 # Global variables
-app = FastAPI()
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Lifespan context manager for startup and shutdown events"""
+    # Startup
+    try:
+        # Initialize database
+        if init_db() is None:
+            logger.error("Failed to connect to database during startup")
+            sys.exit(1)
+
+        # Initialize proxy
+        timeout = config.get("timeout", 120)
+        app.state.proxy = AsyncClient(timeout=timeout) if not config.get("proxy") else AsyncClient(proxy=config.get("proxy"), timeout=timeout)
+
+        # Initialize POE tokens
+        tokens = config.get("apikey", [])
+        if not tokens:
+            logger.warning("No POE API tokens configured")
+        else:
+            try:
+                for token in tokens:
+                    result = await add_token(token)
+                    if result == "ok":
+                        logger.info(f"Successfully added POE token: {token[:6]}...")
+                    elif result == "failed":
+                        logger.error(f"Failed to add POE token: {token[:6]}...")
+                
+                if not app.state.client_dict:
+                    logger.warning("No valid POE tokens were added")
+                else:
+                    app.state.api_key_cycle = itertools.cycle(app.state.client_dict.values())
+                    logger.info(f"Successfully initialized {len(app.state.client_dict)} POE tokens")
+            except Exception as e:
+                logger.error(f"Error initializing POE tokens: {e}")
+
+        yield  # Application runs here
+
+    finally:
+        try:
+            await app.state.cleanup()
+            close_db()
+            logger.info("Successfully completed shutdown process")
+        except Exception as e:
+            logger.error(f"Error during shutdown: {e}")
+            # Even if there's an error, we want to ensure db connection is closed
+            close_db()
+
+# Update FastAPI instance to use lifespan
+app = FastAPI(lifespan=lifespan)
 app.state = AppState()
 security = HTTPBearer()
 router = APIRouter()
@@ -69,27 +126,15 @@ async def get_index():
 
 async def check_admin(request: Request) -> bool:
     """Check if user is logged in and is an admin."""
-    oauth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    if not oauth_token:
-        return False
-    
-    try:
-        cursor = get_db().cursor()
-        cursor.execute("SELECT * FROM users WHERE linuxdo_token = %s", (oauth_token,))
-        user = cursor.fetchone()
-        return bool(user and user[4] and user[8])  # user[4] is enabled, user[8] is is_admin
-    except Exception as e:
-        logger.error(f"Database error in check_admin: {e}")
-        return False
+    return await is_admin_user(request, block=False)
 
-from auth.auth import is_admin_user
+
 
 @app.get("/admin")
 async def get_admin_page(request: Request):
-    """Serve admin page if user is admin, otherwise serve login page."""
-    if await is_admin_user(request):
-        return FileResponse("public/admin.html")
-    return FileResponse("public/login.html")
+    """Serve admin page"""
+    return FileResponse("public/admin.html")
+
 
 # 设置日志
 logging.basicConfig(level=logging.INFO,
@@ -437,66 +482,6 @@ app.include_router(linuxdo.router)
 app.include_router(auth.router)
 app.include_router(admin_router)
 
-# Combine startup events into one
-@app.on_event("startup")
-async def startup_event():
-    # Initialize database
-    if init_db() is None:
-        logger.error("Failed to connect to database during startup")
-        sys.exit(1)
-
-    # Initialize proxy
-    timeout = config.get("timeout", 120)
-    app.state.proxy = AsyncClient(timeout=timeout) if not config.get("proxy") else AsyncClient(proxy=config.get("proxy"), timeout=timeout)
-
-    # Initialize POE tokens
-    tokens = config.get("apikey", [])
-    if not tokens:
-        logger.warning("No POE API tokens configured")
-    else:
-        try:
-            for token in tokens:
-                result = await add_token(token)
-                if result == "ok":
-                    logger.info(f"Successfully added POE token: {token[:6]}...")
-                elif result == "failed":
-                    logger.error(f"Failed to add POE token: {token[:6]}...")
-            
-            if not app.state.client_dict:
-                logger.warning("No valid POE tokens were added")
-            else:
-                app.state.api_key_cycle = itertools.cycle(app.state.client_dict.values())
-                logger.info(f"Successfully initialized {len(app.state.client_dict)} POE tokens")
-        except Exception as e:
-            logger.error(f"Error initializing POE tokens: {e}")
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    await app.state.cleanup()
-    close_db()
-    logger.info("Shutdown complete")
-
-# Keep both startup methods
-async def main():
-    """Entry point for Docker and production deployment"""
-    try:
-        # Initialize tokens before starting server
-        tokens = config.get("apikey", [])
-        await initialize_tokens(tokens)
-        
-        # Configure uvicorn
-        conf = uvicorn.Config(
-            app,
-            host="0.0.0.0",
-            port=config.get('port', 5100),
-            log_level="info"
-        )
-        server = uvicorn.Server(conf)
-        await server.serve()
-    except Exception as e:
-        logger.error(f"Failed to start server: {str(e)}")
-        sys.exit(1)
-
-# Simplify the entry point to just use main()
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Start the application
+    uvicorn.run(app, port=config.get("port", 5100))
