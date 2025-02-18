@@ -1,3 +1,4 @@
+
 // Global variables and state
 let originalUsers = [];
 let currentSort = { field: null, direction: 'asc' };
@@ -12,7 +13,7 @@ const loginButton = document.getElementById('login-button');
 
 // Core API functions
 async function fetchData(url, options = {}) {
-    const token = localStorage.getItem('adminOAuthToken');
+    const token = localStorage.getItem('oauth_token');
     if (!token) {
         updateVisibility(false);
         return;
@@ -49,7 +50,7 @@ function showLoading() {
     if (tableContainer) {
         tableContainer.appendChild(loadingOverlay);
     }
-}
+};
 
 function hideLoading() {
     const loadingOverlay = document.querySelector('.loading-overlay');
@@ -241,53 +242,107 @@ function checkAuthWindow() {
     }
 }
 
-// Immediately check if we're on the login page and initialize the login button
-if (document.querySelector('.login-page')) {
-    document.getElementById('login-button').addEventListener('click', function() {
-        const width = 600;
-        const height = 700;
-        const left = (window.innerWidth - width) / 2;
-        const top = (window.innerHeight - height) / 2;
-        const loginWindow = window.open(
-            '/auth/linuxdo',
-            'Login',
-            `width=${width},height=${height},left=${left},top=${top}`
-        );
 
-        window.addEventListener('message', function(event) {
-            if (event.origin !== window.location.origin) return;
-            
-            if (event.data.error) {
-                alert('登录失败：' + event.data.error);
-                return;
-            }
+// State Management
+const states = {
+    LOADING: 'LOADING',
+    LOGIN: 'LOGIN',
+    ADMIN: 'ADMIN'
+};
 
-            if (event.data.oauth_token) {
-                localStorage.setItem('oauth_token', event.data.oauth_token);
-                window.location.href = '/admin';
-            }
-        }, false);
-    });
+let currentState = states.LOADING;
+
+function setState(newState) {
+    currentState = newState;
+    updateUI();
 }
 
-// Initialization
-window.onload = () => {
-    const adminToken = localStorage.getItem('adminOAuthToken');
-    if (!adminToken) {
-        updateVisibility(false);
-        loginButton.addEventListener('click', login);
-        return;
+function updateUI() {
+    switch (currentState) {
+        case states.LOADING:
+            document.title = '加载中...';
+            showLoadingState();
+            break;
+        case states.LOGIN:
+            document.title = '登录';
+            showLoginState();
+            break;
+        case states.ADMIN:
+            document.title = '管理面板';
+            showAdminPanelState();
+            break;
     }
+}
 
-    updateVisibility(true);
-    displayUsers().catch(error => {
-        console.error("Failed to load data:", error);
-        localStorage.removeItem('adminOAuthToken');
-        updateVisibility(false);
-    });
+function showLoadingState() {
+    document.getElementById('admin-panel').style.display = 'none';
+    document.querySelector('.login-container').style.display = 'none';
+    showLoading(); // Use existing showLoading function
+}
 
-    initializeTable();
-    loginButton.addEventListener('click', login);
+function showLoginState() {
+    hideLoading(); // Use existing hideLoading function
+    document.getElementById('admin-panel').style.display = 'none';
+    document.querySelector('.login-container').style.display = 'block';
+}
+
+function showAdminPanelState() {
+    hideLoading(); // Use existing hideLoading function
+    document.getElementById('admin-panel').style.display = 'block';
+    document.querySelector('.login-container').style.display = 'none';
+}
+
+loginButton.addEventListener('click', function() {
+    const width = 600;
+    const height = 700;
+    const left = (window.innerWidth - width) / 2;
+    const top = (window.innerHeight - height) / 2;
+    const loginWindow = window.open(
+        '/auth/linuxdo',
+        'Login',
+        `width=${width},height=${height},left=${left},top=${top}`
+    );
+
+    window.addEventListener('message', function(event) {
+        if (event.origin !== window.location.origin) return;
+        
+        if (event.data.error) {
+            showToast('登录失败：' + event.data.error, 'error');
+            return;
+        }
+
+        if (event.data.oauth_token) {
+            localStorage.setItem('oauth_token', event.data.oauth_token);
+            window.location.href = '/admin';
+        }
+    }, false);
+});
+
+// Override the existing initialization logic
+window.onload = () => {
+    setState(states.LOADING);
+
+    // Check for admin token
+    const adminToken = localStorage.getItem('oauth_token');
+
+    if (adminToken) {
+        // If token exists, attempt to load admin panel
+        setState(states.ADMIN);
+        displayUsers()
+            .then(() => {
+                // Initialization after successful admin panel load
+                initializeTable();
+            })
+            .catch(error => {
+                console.error("Failed to load data:", error);
+                localStorage.removeItem('oauth_token');
+                setState(states.LOGIN);
+                updateUI();
+            });
+    } else {
+        // If no token, go to login state
+        setState(states.LOGIN);
+    }
 };
 
 // Event Listeners
@@ -301,13 +356,14 @@ window.addEventListener('message', function(event) {
     }
 
     if (event.data.oauth_token) {
-        localStorage.setItem('adminOAuthToken', event.data.oauth_token);
+        localStorage.setItem('oauth_token', event.data.oauth_token);
         updateVisibility(true);
         displayUsers();
         if (authWindow && !authWindow.closed) {
             authWindow.close();
         }
         showToast('登录成功');
+        setState(states.ADMIN);
     } else if (event.data.error) {
         const errorMsg = event.data.error.includes('权限不足') 
             ? '登录失败：此账号没有管理员权限' 
