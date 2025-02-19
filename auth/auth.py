@@ -1,14 +1,11 @@
 import logging
 from fastapi import APIRouter, HTTPException, Request
+from psycopg2 import Error as DBError
 from database import (get_user, reset_api_key, get_db)
-
-
 
 # Setup logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
-
-
 
 router = APIRouter()
 
@@ -24,7 +21,7 @@ async def is_admin_user(request: Request, block: bool = True) -> bool:
     
     if not oauth_token:
         if block:
-            raise HTTPException(status_code=403, detail="需要管理员权限：缺少登录令牌")
+            raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
         return False
 
     logger.info(f"Attempting to authenticate admin with OAuth token: {oauth_token[:10]}...")
@@ -33,17 +30,31 @@ async def is_admin_user(request: Request, block: bool = True) -> bool:
         cursor = get_db().cursor()
         cursor.execute("SELECT * FROM users WHERE linuxdo_token = %s", (oauth_token,))
         user = cursor.fetchone()
-        is_admin = bool(user and user[4] and user[8])  
         
-        if not is_admin and block:
-            raise HTTPException(status_code=403, detail="需要管理员权限")
-        
-        return is_admin
-    except Exception as e:
+    except DBError as e:
         logger.error(f"Database error in is_admin_user: {e}")
+        raise HTTPException(status_code=500, detail="数据库查询失败") from e
+    except Exception as e:
+        logger.error(f"Unexpected error in is_admin_user: {e}")
+        raise HTTPException(status_code=500, detail="系统错误") from e
+
+    # Authentication and authorization logic (outside try-except)
+    if not user:
         if block:
-            raise HTTPException(status_code=500, detail="数据库查询失败")
+            raise HTTPException(status_code=401, detail="登录已过期，请重新登录")
         return False
+        
+    if not user[4]:  # enabled column
+        if block:
+            raise HTTPException(status_code=403, detail=f"你的账户已被禁用，原因: {user[5]}")
+        return False
+        
+    is_admin = bool(user[8])  # is_admin column
+    if not is_admin and block:
+        raise HTTPException(status_code=403, detail="需要管理员权限")
+    
+    return is_admin
+     
 
 @router.post("/auth/reset")
 async def reset_api(request: Request):

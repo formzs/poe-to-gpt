@@ -165,21 +165,3 @@ async def toggle_user(user_id: int, is_admin: bool = Depends(is_admin_user)):
         else:
             raise HTTPException(status_code=500, detail="启用用户失败")
 
-@router.get("/api/users/me")
-async def get_current_user(request: Request, is_admin: bool = Depends(is_admin_user)):
-    """Get current user info."""
-    oauth_token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    try:
-        cursor = get_db().cursor()
-        cursor.execute("SELECT user_id, username, enabled FROM users WHERE linuxdo_token = %s", (oauth_token,))
-        user = cursor.fetchone()
-        if not user:
-            raise HTTPException(status_code=404, detail="用户不存在")
-        return {
-            "user_id": user[0],
-            "username": user[1],
-            "enabled": user[2]
-        }
-    except Exception as e:
-        logger.error(f"Database error: {e}")
-        raise HTTPException(status_code=500, detail="数据库查询失败")

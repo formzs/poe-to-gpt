@@ -1,4 +1,3 @@
-
 // Global variables and state
 let originalUsers = [];
 let currentSort = { field: null, direction: 'asc' };
@@ -7,15 +6,16 @@ const itemsPerPage = 10;
 let authWindow;
 
 const usersTable = document.getElementById('users-table').getElementsByTagName('tbody')[0];
-const adminPanel = document.getElementById('admin-panel');
-const loginButtonContainer = document.getElementById('login-button-container');
-const loginButton = document.getElementById('login-button');
 
 // Core API functions
 async function fetchData(url, options = {}) {
     const token = localStorage.getItem('oauth_token');
     if (!token) {
-        updateVisibility(false);
+        showToast('登录已过期，请重新登录', 'error');
+        setTimeout(() => {
+            localStorage.clear();
+            window.location.href = '/';
+        }, 2000);
         return;
     }
 
@@ -28,6 +28,15 @@ async function fetchData(url, options = {}) {
     const data = await response.json();
         
     if (!response.ok) {
+        if (response.status === 401 || response.status === 403) {
+            // Handle both unauthorized and forbidden (including disabled user) cases
+            showToast(data.detail || '登录已过期，请重新登录', 'error');
+            setTimeout(() => {
+                localStorage.clear();
+                window.location.href = '/';
+            }, 2000);
+            throw new Error(data.detail || '操作失败');
+        }
         throw new Error(data.detail || '操作失败');
     }
 
@@ -110,7 +119,7 @@ async function displayUsers() {
         }
 
         const data = await fetchData(`/api/users?${params.toString()}`);
-        originalUsers = data.users;
+        originalUsers = data.users || [];
         
         // Update sort indicators after getting new data
         document.querySelectorAll('th.sortable').forEach(header => {
@@ -122,16 +131,15 @@ async function displayUsers() {
         
         renderUsers(originalUsers);
         updatePagination(originalUsers.length);
+
     } catch (error) {
         console.error('获取用户失败:', error);
-        showToast(error.message, 'error');
-        
-        if (error.message.includes('已被禁用') || error.message.includes('权限不足')) {
-            showToast('您的账号已被禁用或权限不足，即将退出登录');
-            setTimeout(() => {
-                localStorage.clear();
-                window.location.href = '/';
-            }, 2000);
+        // If we get an auth error (401 or 403), we should be redirected
+        if (error.message.includes('需要登录') || 
+            error.message.includes('无效的登录令牌') ||
+            error.message.includes('账号已被禁用')) {
+            localStorage.clear();
+            window.location.href = '/';
             return;
         }
     } finally {
@@ -148,9 +156,12 @@ async function toggleAdmin(userId, isAdmin) {
             body: JSON.stringify({ is_admin: isAdmin })
         });
         showToast(response.message);
-        await displayUsers();
+        await displayUsers(); // This will handle any access changes
     } catch (error) {
-        showToast(error.message, 'error');
+        // Error handling already done in fetchData
+        if (!error.message.includes('登录已失效')) {
+            showToast(error.message, 'error');
+        }
     } finally {
         hideLoading();
     }
@@ -211,6 +222,7 @@ async function submitDisable() {
 
         closeModal();
         showToast(response.message);
+        
         await displayUsers(); // This will handle logout if user disabled themselves
     } catch (error) {
         showToast(error.message, 'error');
@@ -221,157 +233,121 @@ async function submitDisable() {
 
 // Authentication Functions
 function updateVisibility(isLoggedIn) {
-    adminPanel.style.display = isLoggedIn ? 'block' : 'none';
-    loginButtonContainer.style.display = isLoggedIn ? 'none' : 'block';
+    setState(isLoggedIn ? 'ADMIN' : 'LOGIN');
 }
-
-function login() {
-    const selfUrl = window.location.href;
-    authWindow = window.open('/auth/linuxdo?self=' + encodeURIComponent(selfUrl), 'OAuth', 'width=600,height=400');
-    checkAuthWindow();
-}
-
-function checkAuthWindow() {
-    if (authWindow && !authWindow.closed) {
-        setTimeout(() => {
-            if (authWindow && !authWindow.closed) {
-                authWindow.close();
-                showToast("登录超时 - 请重试");
-            }
-        }, 120000);
-    }
-}
-
 
 // State Management
 const states = {
-    LOADING: 'LOADING',
-    LOGIN: 'LOGIN',
-    ADMIN: 'ADMIN'
+    LOADING: 'loading-state',
+    LOGIN: 'login-state',
+    ADMIN: 'admin-state'
 };
-
-let currentState = states.LOADING;
 
 function setState(newState) {
-    currentState = newState;
-    updateUI();
+    // Hide all states
+    Object.values(states).forEach(state => {
+        document.getElementById(state).style.display = 'none';
+    });
+
+    // Show new state
+    document.getElementById(states[newState]).style.display = 'flex';
+
+    // Update page title
+    document.title = newState === 'LOADING' ? '加载中...' : 
+                    newState === 'LOGIN' ? '管理员登录' : 
+                    '管理面板';
 }
 
-function updateUI() {
-    switch (currentState) {
-        case states.LOADING:
-            document.title = '加载中...';
-            showLoadingState();
-            break;
-        case states.LOGIN:
-            document.title = '登录';
-            showLoginState();
-            break;
-        case states.ADMIN:
-            document.title = '管理面板';
-            showAdminPanelState();
-            break;
+// Initialize state
+window.addEventListener('DOMContentLoaded', async () => {
+    setState('LOADING');
+
+    const token = localStorage.getItem('oauth_token');
+    if (!token) {
+        setState('LOGIN');
+        return;
     }
-}
 
-function showLoadingState() {
-    document.getElementById('admin-panel').style.display = 'none';
-    document.querySelector('.login-container').style.display = 'none';
-    showLoading(); // Use existing showLoading function
-}
+    try {
+        // Attempt to fetch initial data to verify admin access
+        const response = await fetch('/api/users', {
+            headers: {
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
-function showLoginState() {
-    hideLoading(); // Use existing hideLoading function
-    document.getElementById('admin-panel').style.display = 'none';
-    document.querySelector('.login-container').style.display = 'block';
-}
-
-function showAdminPanelState() {
-    hideLoading(); // Use existing hideLoading function
-    document.getElementById('admin-panel').style.display = 'block';
-    document.querySelector('.login-container').style.display = 'none';
-}
-
-loginButton.addEventListener('click', function() {
-    const width = 600;
-    const height = 700;
-    const left = (window.innerWidth - width) / 2;
-    const top = (window.innerHeight - height) / 2;
-    const loginWindow = window.open(
-        '/auth/linuxdo',
-        'Login',
-        `width=${width},height=${height},left=${left},top=${top}`
-    );
-
-    window.addEventListener('message', function(event) {
-        if (event.origin !== window.location.origin) return;
-        
-        if (event.data.error) {
-            showToast('登录失败：' + event.data.error, 'error');
-            return;
+        if (!response.ok) {
+            throw new Error(await response.text());
         }
 
-        if (event.data.oauth_token) {
-            localStorage.setItem('oauth_token', event.data.oauth_token);
-            window.location.href = '/admin';
-        }
-    }, false);
+        setState('ADMIN');
+        await initializeAdminPanel();
+    } catch (error) {
+        console.error('Failed to verify admin access:', error);
+        localStorage.removeItem('oauth_token');
+        setState('LOGIN');
+        showToast('请重新登录', 'error');
+    }
 });
 
-// Override the existing initialization logic
-window.onload = () => {
-    setState(states.LOADING);
+// Login handler
+document.addEventListener('DOMContentLoaded', () => {
+    const loginButton = document.getElementById('login-button');
+    if (loginButton) {
+        loginButton.addEventListener('click', () => {
+            const width = 600;
+            const height = 600;
+            const left = (screen.width / 2) - (width / 2);
+            const top = (screen.height / 2) - (height / 2);
+            
+            // Create window reference
+            const loginWindow = window.open(
+                '/auth/linuxdo',
+                'Login',
+                `width=${width},height=${height},left=${left},top=${top}`
+            );
 
-    // Check for admin token
-    const adminToken = localStorage.getItem('oauth_token');
+            // Add message handler before opening window
+            const messageHandler = async (event) => {
+                if (event.origin !== window.location.origin) return;
+                
+                if (event.data.error) {
+                    loginWindow.close();
+                    showToast(event.data.error, 'error');
+                    return;
+                }
 
-    if (adminToken) {
-        // If token exists, attempt to load admin panel
-        setState(states.ADMIN);
-        displayUsers()
-            .then(() => {
-                // Initialization after successful admin panel load
-                initializeTable();
-            })
-            .catch(error => {
-                console.error("Failed to load data:", error);
-                localStorage.removeItem('oauth_token');
-                setState(states.LOGIN);
-                updateUI();
-            });
-    } else {
-        // If no token, go to login state
-        setState(states.LOGIN);
-    }
-};
+                if (event.data.oauth_token) {
+                    loginWindow.close();
+                    if (!event.data.admin) {
+                        showToast('需要管理员权限', 'error');
+                        return;
+                    }
+                    
+                    localStorage.setItem('oauth_token', event.data.oauth_token);
+                    setState('LOADING');
+                    try {
+                        await initializeAdminPanel();
+                        setState('ADMIN');
+                    } catch (error) {
+                        console.error('Failed to initialize admin panel:', error);
+                        setState('LOGIN');
+                        showToast('初始化管理面板失败', 'error');
+                    }
+                }
+            };
 
-// Event Listeners
-window.addEventListener('message', function(event) {
-    if (event.origin !== window.location.origin || event.source !== authWindow) {
-        return;
-    }
-    
-    if (typeof event.data !== 'object' || (!event.data.apiKey && !event.data.oauth_token && !event.data.error)) {
-        return;
-    }
+            // Add event listener and store reference
+            window.addEventListener('message', messageHandler);
 
-    if (event.data.oauth_token) {
-        localStorage.setItem('oauth_token', event.data.oauth_token);
-        updateVisibility(true);
-        displayUsers();
-        if (authWindow && !authWindow.closed) {
-            authWindow.close();
-        }
-        showToast('登录成功');
-        setState(states.ADMIN);
-    } else if (event.data.error) {
-        const errorMsg = event.data.error.includes('权限不足') 
-            ? '登录失败：此账号没有管理员权限' 
-            : event.data.error;
-        showToast(errorMsg, 'error');
-        if (authWindow && !authWindow.closed) {
-            authWindow.close();
-        }
+            // Add check for window close
+            const checkClosed = setInterval(() => {
+                if (loginWindow.closed) {
+                    clearInterval(checkClosed);
+                    window.removeEventListener('message', messageHandler);
+                }
+            }, 1000);
+        });
     }
 });
 
@@ -460,7 +436,12 @@ async function renderUsers(users) {
         return;
     }
 
-    users.forEach(user => {
+    // Calculate pagination
+    const startIndex = (currentPage - 1) * itemsPerPage;
+    const endIndex = startIndex + itemsPerPage;
+    const paginatedUsers = users.slice(startIndex, endIndex);
+
+    paginatedUsers.forEach(user => {
         const row = document.createElement('tr');
         if (!user.enabled) {
             row.classList.add('disabled-user');
@@ -700,3 +681,86 @@ function initializeTable() {
         adminFilter.addEventListener('change', filterData);
     }
 }
+
+async function initializeAdminPanel() {
+    const token = localStorage.getItem('oauth_token');
+    if (!token) {
+        throw new Error('No authentication token found');
+    }
+
+    try {
+        // Initialize table event listeners
+        initializeTable();
+        
+        // Fetch initial data
+        await displayUsers();
+        
+        // Show admin panel
+        document.getElementById('admin-panel').style.display = 'block';
+    } catch (error) {
+        console.error('Failed to initialize admin panel:', error);
+        localStorage.removeItem('oauth_token');
+        throw error;
+    }
+}
+
+function filterAndSortData() {
+    // Apply filters and sorting to originalUsers
+    let filteredUsers = [...originalUsers];
+    
+    // Apply search filter
+    const searchTerm = document.getElementById('userSearch')?.value.toLowerCase();
+    if (searchTerm) {
+        filteredUsers = filteredUsers.filter(user => 
+            user.username?.toLowerCase().includes(searchTerm) || 
+            user.user_id.toString().includes(searchTerm)
+        );
+    }
+    
+    // Apply status filter
+    const statusFilter = document.getElementById('statusFilter')?.value;
+    if (statusFilter && statusFilter !== 'all') {
+        filteredUsers = filteredUsers.filter(user => 
+            statusFilter === 'enabled' ? user.enabled : !user.enabled
+        );
+    }
+    
+    // Apply admin filter
+    const adminFilter = document.getElementById('adminFilter')?.value;
+    if (adminFilter && adminFilter !== 'all') {
+        filteredUsers = filteredUsers.filter(user => 
+            adminFilter === 'admin' ? user.is_admin : !user.is_admin
+        );
+    }
+
+    // Render filtered and paginated results
+    renderUsers(filteredUsers);
+}
+
+// Update pagination event listeners
+document.addEventListener('DOMContentLoaded', () => {
+    // ...existing code...
+
+    // Add pagination events
+    const prevButton = document.getElementById('prevPage');
+    const nextButton = document.getElementById('nextPage');
+
+    if (prevButton) {
+        prevButton.addEventListener('click', () => {
+            if (currentPage > 1) {
+                currentPage--;
+                filterAndSortData();
+            }
+        });
+    }
+
+    if (nextButton) {
+        nextButton.addEventListener('click', () => {
+            const totalPages = Math.ceil(originalUsers.length / itemsPerPage);
+            if (currentPage < totalPages) {
+                currentPage++;
+                filterAndSortData();
+            }
+        });
+    }
+});

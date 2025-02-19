@@ -74,6 +74,133 @@ input[type="submit"]:hover {
     cursor: pointer;
 }
 
+#apikey-masked {
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    width: 280px;  /* Reduced from 350px */
+    font-size: 16px;  /* Increased from 14px */
+    margin-top: 10px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: all 0.3s ease;
+    font-family: monospace;
+    text-align: center;
+    color: #666;  /* Dimmer color for masked text */
+    user-select: all;
+    cursor: pointer;  /* Indicate clickable */
+}
+
+#apikey-masked:hover {
+    border-color: #4a90e2;
+    background-color: #f8f9fa;  /* Light background on hover */
+}
+
+#apikey-masked::placeholder {
+    color: #aaa;
+}
+
+#apikey-masked[data-full]::after {
+    content: attr(data-full);
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    top: -30px;
+    background: #333;
+    color: white;
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 14px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    z-index: 1000;
+}
+
+#apikey-masked:hover[data-full]::after {
+    opacity: 1;
+    visibility: visible;
+    top: -35px;
+}
+
+#apikey-section {
+    position: relative;
+    margin: 30px auto;
+    width: 280px;
+    min-height: 48px; /* Preserve space even when hidden */
+}
+
+#apikey-masked {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    font-family: monospace;
+    text-align: center;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+#apikey-masked:hover {
+    border-color: #4a90e2;
+    background-color: #f8f9fa;
+    color: #333;
+}
+
+#apikey-section {
+    position: relative;
+    margin: 30px auto;
+    width: 280px;
+}
+
+#apikey-masked {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 16px;
+    font-family: monospace;
+    text-align: center;
+    color: #666;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    background: white;
+}
+
+/* Tooltip container and hover effect */
+.apikey-container {
+    position: relative;
+    display: inline-block;
+    width: 100%;
+}
+
+.apikey-tooltip {
+    visibility: hidden;
+    opacity: 0;
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    bottom: calc(100% + 10px);
+    padding: 8px 12px;
+    background: #333;
+    color: white;
+    font-family: monospace;
+    font-size: 14px;
+    white-space: nowrap;
+    border-radius: 4px;
+    transition: all 0.2s ease;
+    z-index: 100;
+}
+
+.apikey-container:hover .apikey-tooltip {
+    visibility: visible;
+    opacity: 1;
+    bottom: calc(100% + 5px);
+}
+
 input[type="text"],
 input[type="password"] {
     padding: 10px;
@@ -94,11 +221,12 @@ input[type="password"]:focus {
 }
 
 .button-container {
+    min-height: 48px;  /* Ensure consistent height */
+    margin: 20px 0;
     display: flex;
     flex-direction: column;
-    gap: 10px;
     align-items: center;
-    margin-top: 20px;
+    gap: 10px;
 }
 
 .button-container button {
@@ -512,13 +640,36 @@ body.admin-page {
 }
 
 .modal-buttons {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
     margin-top: 20px;
-    text-align: right;
 }
 
 .modal-buttons button {
-    margin-left: 10px;
-    padding: 8px 16px;
+    min-width: 80px;
+    padding: 8px 20px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    color: white;
+    transition: opacity 0.2s;
+    /* Override any global button styles */
+    width: auto;
+    margin: 0;
+}
+
+.modal-buttons button:first-child {
+    background-color: #dc3545;
+}
+
+.modal-buttons button:last-child {
+    background-color: #6c757d;
+}
+
+.modal-buttons button:hover {
+    opacity: 0.9;
 }
 
 .modal input[type="text"] {
@@ -845,22 +996,35 @@ th.sortable.sort-desc::after {
 }
 
 .login-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    height: 48px;
+    width: 280px;  /* Fixed width instead of auto/min-width */
+    padding: 0 24px;
     background-color: #1a73e8;
-    color: white;
-    padding: 12px 24px;  /* Adjust padding */
     border: none;
     border-radius: 4px;
     cursor: pointer;
-    font-size: 16px;
-    font-weight: 500;
-    transition: background-color 0.2s, box-shadow 0.2s;
-    min-width: 240px;  /* Match the base button width */
-    white-space: nowrap;  /* Prevent text wrapping */
-    display: inline-flex;  /* Change from flex to inline-flex */
+    transition: background-color 0.2s;
+}
+
+.button-content {
+    display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin: 0 auto;  /* Add auto margins */
+    color: white;
+    font-size: 16px;
+    white-space: nowrap;
+    width: 100%;  /* Take full width of button */
+}
+
+.button-content img {
+    width: 20px;
+    height: 20px;
+    object-fit: contain;
+    flex-shrink: 0;  /* Prevent image from shrinking */
 }
 
 .login-button:hover {
@@ -877,4 +1041,9 @@ th.sortable.sort-desc::after {
     height: 20px;
     object-fit: contain;  /* Ensure image maintains aspect ratio */
     vertical-align: middle;
+}
+
+/* Add hidden class */
+.hidden {
+    display: none !important;
 }

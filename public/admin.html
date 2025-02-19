@@ -5,53 +5,80 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理面板</title>
     <link rel="stylesheet" href="/styles/styles.css">
+    <style>
+        /* Initial state visibility */
+        .state-container {
+            display: none;
+        }
+        #loading-state {
+            display: flex;
+        }
+    </style>
 </head>
 <body class="admin-page">
-    <div id="admin-panel" class="admin-container" style="display: none;">
-        <h1>POE-TO-GPT 管理面板</h1>
-        
-        <!-- Controls -->
-        <div class="controls-container">
-            <div class="search-box">
-                <input type="text" id="userSearch" placeholder="搜索用户名或ID...">
-            </div>
-            <div class="filters">
-                <select id="statusFilter">
-                    <option value="all">全部状态</option>
-                    <option value="enabled">已启用</option>
-                    <option value="disabled">已禁用</option>
-                </select>
-                <select id="adminFilter">
-                    <option value="all">全部用户</option>
-                    <option value="admin">管理员</option>
-                    <option value="user">普通用户</option>
-                </select>
-            </div>
-        </div>
+    <!-- State containers -->
+    <div id="loading-state" class="state-container">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">加载中...</div>
+    </div>
 
-        <!-- Table container -->
-        <div class="table-container">
-            <table id="users-table">
-                <thead>
-                    <tr>
-                        <th class="sortable" data-sort="username">用户名</th>
-                        <th class="sortable" data-sort="user_id">用户ID</th>
-                        <th class="sortable" data-sort="created_at">创建时间</th>
-                        <th class="sortable" data-sort="last_used_at">上次使用时间</th>
-                        <th>操作</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <!-- User data will be populated here -->
-                </tbody>
-            </table>
-            <div class="pagination-container">
-                <button class="pagination-button" id="prevPage" disabled>上一页</button>
-                <div class="pagination-info">
-                    第 <span id="currentPage">1</span> 页，共 <span id="totalPages">1</span> 页
-                    (共 <span id="totalItems">0</span> 条记录)
+    <div id="login-state" class="state-container">
+        <div class="login-container">
+            <h1 class="login-title">管理员登录</h1>
+            <button id="login-button" class="login-button">
+                <img src="https://linux.do/uploads/default/original/3X/9/d/9dd49731091ce8656e94433a26a3ef36062b3994.png" alt="LinuxDO">
+                使用 LinuxDO OAuth 登录
+            </button>
+        </div>
+    </div>
+
+    <div id="admin-state" class="state-container">
+        <div id="admin-panel" class="admin-container">
+            <h1>POE-TO-GPT 管理面板</h1>
+        
+            <!-- Controls -->
+            <div class="controls-container">
+                <div class="search-box">
+                    <input type="text" id="userSearch" placeholder="搜索用户名或ID...">
                 </div>
-                <button class="pagination-button" id="nextPage" disabled>下一页</button>
+                <div class="filters">
+                    <select id="statusFilter">
+                        <option value="all">全部状态</option>
+                        <option value="enabled">已启用</option>
+                        <option value="disabled">已禁用</option>
+                    </select>
+                    <select id="adminFilter">
+                        <option value="all">全部用户</option>
+                        <option value="admin">管理员</option>
+                        <option value="user">普通用户</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Table container -->
+            <div class="table-container">
+                <table id="users-table">
+                    <thead>
+                        <tr>
+                            <th class="sortable" data-sort="username">用户名</th>
+                            <th class="sortable" data-sort="user_id">用户ID</th>
+                            <th class="sortable" data-sort="created_at">创建时间</th>
+                            <th class="sortable" data-sort="last_used_at">上次使用时间</th>
+                            <th>操作</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <!-- User data will be populated here -->
+                    </tbody>
+                </table>
+                <div class="pagination-container">
+                    <button class="pagination-button" id="prevPage" disabled>上一页</button>
+                    <div class="pagination-info">
+                        第 <span id="currentPage">1</span> 页，共 <span id="totalPages">1</span> 页
+                        (共 <span id="totalItems">0</span> 条记录)
+                    </div>
+                    <button class="pagination-button" id="nextPage" disabled>下一页</button>
+                </div>
             </div>
         </div>
     </div>
@@ -78,14 +105,6 @@
         </div>
     </div>
 
-
-    <div class="login-container" style="display: block;">
-        <h1 class="login-title">管理员登录</h1>
-        <button id="login-button" class="login-button">
-            <img src="https://linux.do/uploads/default/original/3X/9/d/9dd49731091ce8656e94433a26a3ef36062b3994.png" alt="LinuxDO">
-            使用 LinuxDO OAuth 登录
-        </button>
-    </div>
     <script src="/scripts/admin.js"></script>
 </body>
 </html>

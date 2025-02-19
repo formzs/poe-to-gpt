@@ -48,16 +48,18 @@ async def auth_linuxdo(request: Request, self: str = None):
     redirect_uri = base_url + '/oauth/callback'  # This must match the registered redirect URI
     return await oauth.linuxdo.authorize_redirect(request, redirect_uri)
 
-async def verify_linuxdo_token(access_token: str) -> bool:
-    """Verify access token with LinuxDO's API."""
+async def verify_linuxdo_token(access_token: str) -> dict:
+    """Verify token with LinuxDO's API and return user info."""
     try:
         async with AsyncClient() as client:
             headers = {"Authorization": f"Bearer {access_token}"}
             response = await client.get(UserUrl, headers=headers)
-            return response.status_code == 200
+            if response.status_code == 200:
+                return response.json()
+            return None
     except Exception as e:
         logger.error(f"Failed to verify token with LinuxDO: {e}")
-        return False
+        return None
 
 @router.get('/oauth/callback')
 async def authorize(request: Request):
@@ -69,19 +71,10 @@ async def authorize(request: Request):
         if not access_token:
             raise HTTPException(status_code=400, detail="未收到访问令牌")
 
-        # Verify token with LinuxDO
-        if not await verify_linuxdo_token(access_token):
-            raise HTTPException(status_code=401, detail="访问令牌验证失败")
-
-        # Fetch user info directly from LinuxDO API
-        async with AsyncClient() as client:
-            headers = {"Authorization": f"Bearer {access_token}"}
-            response = await client.get(UserUrl, headers=headers)
-            response.raise_for_status()
-            user_info = response.json()
-
+        # Verify token and get user info in one call
+        user_info = await verify_linuxdo_token(access_token)
         if not user_info:
-            raise HTTPException(status_code=400, detail="获取用户信息失败")
+            raise HTTPException(status_code=401, detail="访问令牌验证失败")
 
         # Extract relevant user information
         username = user_info.get('username')
@@ -101,11 +94,25 @@ async def authorize(request: Request):
             update_linuxdo_token(user[0], access_token)  # user[0] is user_id
             api_key = user[1]  # user[1] is api_key
 
-        # Check if user is disabled - keep original error message
+        # Handle disabled users as normal flow
         if not user[4]:  # user[4] is enabled status
             logger.warning(f"Disabled user attempted to login: {username}")
             error_message = f"用户已被禁用：{user[5]}" if user[5] else "用户已被禁用"
-            raise HTTPException(status_code=401, detail=error_message)
+            return HTMLResponse(f"""
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>登录失败</title>
+                    <script>
+                        if (window.opener) {{
+                            window.opener.postMessage({{"error": "{error_message}"}}, window.location.origin);
+                        }}
+                        window.close();
+                    </script>
+                </head>
+                <body></body>
+                </html>
+            """)
 
         # Get admin status using their OAuth token
         admin_status = is_admin(access_token)
@@ -133,10 +140,9 @@ async def authorize(request: Request):
         """)
 
     except Exception as e:
+        # Only handle actual errors here
         logger.error(f"OAuth authorization failed: {str(e)}")
-        error_res = {
-            "error": str(e)
-        }
+        error_res = {"error": str(e)}
         return HTMLResponse(f"""
             <!DOCTYPE html>
             <html>

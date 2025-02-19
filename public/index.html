@@ -2,22 +2,24 @@
  <html lang="zh-CN">
  <head>
     <meta charset="UTF-8">
-    <title>阿康poe转接 - OAuth 登录</title>
+    <title>阿康poe转接</title>
     <link rel="stylesheet" href="/styles/styles.css">
  </head>
  <body>
     <div class="container">
-    <h1>登录阿康poe转接</h1>
-    <div id="api_key_section">
-        <input type="text" id="api_key_masked" placeholder="API 密钥" value="" readonly>
-        <input type="hidden" id="api_key" value="">
+    <h1 id="page-title">登录阿康poe转接</h1>
+    <div id="apikey-section" class="hidden">
+        <input type="text" id="apikey-masked" placeholder="API 密钥" value="" readonly>
+        <input type="hidden" id="apikey" value="">
     </div>
     <div class="button-container">
-        <button id="login_btn" class="login-button">
-            <img src="https://linux.do/uploads/default/original/3X/9/d/9dd49731091ce8656e94433a26a3ef36062b3994.png" alt="LinuxDO">
-            使用 LinuxDO OAuth 登录
+        <button id="login-button" class="login-button" disabled>
+            <span class="button-content">
+                <img src="https://linux.do/uploads/default/original/3X/9/d/9dd49731091ce8656e94433a26a3ef36062b3994.png" alt="LinuxDO">
+                <span>使用 LinuxDO OAuth 登录</span>
+            </span>
         </button>
-        <button id="reset_btn" onclick="resetApiKey()" style="display:none;">重置 API 密钥</button>
+        <button id="reset-button" class="button-secondary hidden">重置 API 密钥</button>
     </div>
     </div>
     <script src="/scripts/index.js"></script>
