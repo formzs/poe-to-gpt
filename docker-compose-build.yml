@@ -4,6 +4,8 @@ services:
   poe-to-gpt:
     build: .
     image: poe-to-gpt:latest
+    environment:
+      - TZ=Asia/Shanghai
     ports:
       - "3700:3700"
     env_file:
