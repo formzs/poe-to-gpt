@@ -9,9 +9,9 @@ import logging
 import itertools
 import json
 from httpx import AsyncClient
-from fastapi import FastAPI, HTTPException, Depends, APIRouter
+from fastapi import FastAPI, HTTPException, Depends, APIRouter, Request
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from fastapi.responses import StreamingResponse
+from fastapi.responses import StreamingResponse, JSONResponse
 from fastapi_poe.types import ProtocolMessage
 from fastapi_poe.client import get_bot_response, get_final_response, QueryRequest, BotError
 
@@ -188,6 +188,14 @@ async def verify_token(credentials: HTTPAuthorizationCredentials = Depends(secur
         )
     return credentials.credentials
 
+@router.options("/{full_path:path}")
+async def options_handler(full_path: str, request: Request):
+    response = JSONResponse(content={"message": "OK"})
+    response.headers["Access-Control-Allow-Origin"] = "*"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, OPTIONS"
+    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type"
+    response.headers["Access-Control-Max-Age"] = "86400"
+    return response
 
 @router.post("/v1/chat/completions")
 @router.post("/chat/completions")
