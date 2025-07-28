@@ -26,6 +26,7 @@ router = APIRouter()
 PORT = int(os.getenv("PORT", 3700))
 TIMEOUT = int(os.getenv("TIMEOUT", 120))
 PROXY = os.getenv("PROXY", "")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()  # 新增：日志级别配置，默认为 INFO
 
 # 解析JSON数组格式的环境变量
 def parse_json_env(env_name, default=None):
@@ -49,7 +50,10 @@ BOT_NAMES = parse_json_env("BOT_NAMES")
 POE_API_KEYS = parse_json_env("POE_API_KEYS")
 
 # 设置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # 初始化代理
@@ -155,7 +159,7 @@ class CompletionRequest(BaseModel):
     class Config:
         json_schema_extra = {
             "example": {
-                "model": "GPT-3.5-Turbo",
+                "model": "GPT-4o",
                 "messages": [
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": "Hello!"}
@@ -168,7 +172,7 @@ class CompletionRequest(BaseModel):
         schema_extra = {
             "examples": [
                 {
-                    "model": "GPT-3.5-Turbo",
+                    "model": "GPT-4o",
                     "messages": [
                         {
                             "role": "system",
@@ -206,9 +210,9 @@ async def add_token(token: str):
 
     if token not in client_dict:
         try:
-            logger.info(f"Attempting to add apikey: {token[:6]}...")  # 只记录前6位
+            logger.debug(f"Attempting to add apikey: {token[:6]}...")  # 只记录前6位
             request = CompletionRequest(
-                model="GPT-3.5-Turbo",
+                model="GPT-4o",
                 messages=[Message(role="user", content="Please return 'OK'")],
                 temperature=0.7
             )
@@ -216,7 +220,7 @@ async def add_token(token: str):
             if ret == "OK":
                 client_dict[token] = token
                 api_key_cycle = itertools.cycle(client_dict.values())
-                logger.info(f"apikey added successfully: {token[:6]}...")
+                logger.info(f"API key {token[:6]}... added successfully")
                 return "ok"
             else:
                 logger.error(f"Failed to add apikey: {token[:6]}..., response: {ret}")
@@ -231,7 +235,7 @@ async def add_token(token: str):
                     return f"failed: {str(exception)}"
             return f"failed: {str(exception)}"
     else:
-        logger.info(f"apikey already exists: {token[:6]}...")
+        logger.debug(f"API key {token[:6]}... already exists")
         return "exist"
 
 
@@ -309,8 +313,8 @@ async def create_completion(request: Request, token: str = Depends(verify_token)
     try:
         # 获取并记录原始请求数据
         raw_request = await request.json()
-        logger.info(f"Raw request [{request_id}]:")
-        logger.info(json.dumps(raw_request, ensure_ascii=False, indent=2))
+        logger.debug(f"Raw request [{request_id}]:")
+        logger.debug(json.dumps(raw_request, ensure_ascii=False, indent=2))
 
         # 尝试解析为 CompletionRequest
         try:
@@ -332,14 +336,14 @@ async def create_completion(request: Request, token: str = Depends(verify_token)
             )
 
         # 打印解析后的请求参数
-        logger.info(f"Parsed request [{request_id}] - Full details:")
-        logger.info(f"Model: {completion_request.model}")
-        logger.info(f"Stream: {completion_request.stream}")
-        logger.info(f"Temperature: {completion_request.temperature}")
-        logger.info("Messages:")
+        logger.debug(f"Parsed request [{request_id}] - Full details:")
+        logger.debug(f"Model: {completion_request.model}")
+        logger.debug(f"Stream: {completion_request.stream}")
+        logger.debug(f"Temperature: {completion_request.temperature}")
+        logger.debug("Messages:")
         for idx, msg in enumerate(completion_request.messages):
-            logger.info(f"  [{idx}] Role: {msg.role}")
-            logger.info(f"  [{idx}] Content: {msg.get_content_text()}")
+            logger.debug(f"  [{idx}] Role: {msg.role}")
+            logger.debug(f"  [{idx}] Content: {msg.get_content_text()}")
 
         if not api_key_cycle:
             raise HTTPException(status_code=500, detail="No valid API tokens available")
@@ -368,7 +372,7 @@ async def create_completion(request: Request, token: str = Depends(verify_token)
             for msg in completion_request.messages
         ]
         poe_token = next(api_key_cycle)
-        logger.info(f"Using POE token: {poe_token[:6]}...")
+        logger.info(f"Processing request [{request_id}] with model {completion_request.model}")
 
         if completion_request.stream:
             import re
@@ -418,7 +422,7 @@ async def create_completion(request: Request, token: str = Depends(verify_token)
                     
                     # 发送结束标记
                     logger.info(f"Stream completed for [{request_id}] - Total chunks: {chunk_count}")
-                    logger.info(f"Final response [{request_id}]: {total_response}")
+                    logger.debug(f"Final response [{request_id}]: {total_response}")
                     
                     end_chunk = {
                         "id": request_id,
@@ -489,9 +493,9 @@ async def create_completion(request: Request, token: str = Depends(verify_token)
             }
             
             # 打印完整响应
-            logger.info(f"Non-stream response [{request_id}]:")
-            logger.info(f"Response content: {response}")
-            logger.info(f"Response data: {json.dumps(response_data, ensure_ascii=False)}")
+            logger.info(f"Non-stream response completed for [{request_id}]")
+            logger.debug(f"Response content: {response}")
+            logger.debug(f"Response data: {json.dumps(response_data, ensure_ascii=False)}")
             
             return response_data
     except GeneratorExit:
@@ -549,7 +553,7 @@ async def initialize_tokens(tokens: List[str]):
         else:
             global api_key_cycle
             api_key_cycle = itertools.cycle(client_dict.values())
-            logger.info(f"Successfully initialized {len(client_dict)} API tokens")
+            logger.info(f"Server initialized with {len(client_dict)} API tokens")
 
 
 app.include_router(router)
@@ -562,7 +566,7 @@ async def main(tokens: List[str] = None):
             app,
             host="0.0.0.0",
             port=PORT,
-            log_level="info"
+            log_level=LOG_LEVEL.lower()
         )
         server = uvicorn.Server(conf)
         await server.serve()
