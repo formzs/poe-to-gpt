@@ -1,3 +1,9 @@
+## fork修改内容
+
+* 支持了cline
+* 更新了一些最新的模型
+* 支持了一些日志打印，更好debug
+
 ## poe-to-gpt
 一个转换器，可以将 POE 提供的 API 令牌转换为 OpenAI 的 API 格式，从而使依赖于 OpenAI API 的其他应用程序可以使用 POE 的 API。
 
