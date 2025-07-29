@@ -1,5 +1,5 @@
-from typing import List, Optional, Dict
-from pydantic import BaseModel
+from typing import List, Optional, Dict, Union
+from pydantic import BaseModel, validator, ValidationError
 import asyncio
 import uvicorn
 import os
@@ -26,6 +26,7 @@ router = APIRouter()
 PORT = int(os.getenv("PORT", 3700))
 TIMEOUT = int(os.getenv("TIMEOUT", 120))
 PROXY = os.getenv("PROXY", "")
+LOG_LEVEL = os.getenv("LOG_LEVEL", "INFO").upper()  # 新增：日志级别配置，默认为 INFO
 
 # 解析JSON数组格式的环境变量
 def parse_json_env(env_name, default=None):
@@ -49,7 +50,10 @@ BOT_NAMES = parse_json_env("BOT_NAMES")
 POE_API_KEYS = parse_json_env("POE_API_KEYS")
 
 # 设置日志
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+logging.basicConfig(
+    level=getattr(logging, LOG_LEVEL),
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
 logger = logging.getLogger(__name__)
 
 # 初始化代理
@@ -68,32 +72,135 @@ bot_names_map = {name.lower(): name for name in BOT_NAMES}
 
 class Message(BaseModel):
     role: str
-    content: str
+    content: Union[str, List[Dict[str, str]], Dict[str, str]] = ""
+    name: Optional[str] = None
+    function_call: Optional[Dict] = None
+    tool_calls: Optional[List[Dict]] = None
+    tool_call_id: Optional[str] = None
 
+    @property
+    def is_valid_role(self) -> bool:
+        return self.role in ["system", "user", "assistant", "function", "tool"]
+
+    def get_content_text(self) -> str:
+        """获取消息内容的文本表示"""
+        if isinstance(self.content, str):
+            return self.content
+        elif isinstance(self.content, list):
+            # 处理列表格式的内容，例如 [{"type": "text", "text": "some content"}]
+            return " ".join(item.get("text", "") for item in self.content if item.get("type") == "text")
+        elif isinstance(self.content, dict):
+            # 处理字典格式的内容
+            return self.content.get("text", "")
+        return ""
+
+    class Config:
+        json_schema_extra = {
+            "example": {
+                "role": "user",
+                "content": "Hello!"
+            }
+        }
 
 class CompletionRequest(BaseModel):
     model: str
     messages: List[Message]
     stream: Optional[bool] = False
     temperature: Optional[float] = 0.7
-    skip_system_prompt: Optional[bool] = None
-    frequency_penalty: Optional[float] = 0.0
+    top_p: Optional[float] = 1.0
+    n: Optional[int] = 1
+    max_tokens: Optional[int] = None
     presence_penalty: Optional[float] = 0.0
+    frequency_penalty: Optional[float] = 0.0
     logit_bias: Optional[Dict[str, int]] = None
-    stop_sequences: Optional[List[str]] = None
+    user: Optional[str] = None
+    response_format: Optional[Dict[str, str]] = None
+    seed: Optional[int] = None
+    stop: Optional[Union[str, List[str]]] = None
+    functions: Optional[List[Dict]] = None
+    function_call: Optional[Union[str, Dict]] = None
+    tools: Optional[List[Dict]] = None
+    tool_choice: Optional[Union[str, Dict]] = None
+    skip_system_prompt: Optional[bool] = None
+
+    @validator('messages')
+    def validate_messages(cls, v):
+        if not v:
+            raise ValueError("messages cannot be empty")
+        for msg in v:
+            if not msg.is_valid_role:
+                raise ValueError(f"Invalid role: {msg.role}. Must be one of: system, user, assistant, function, tool")
+        return v
+
+    @validator('temperature')
+    def validate_temperature(cls, v):
+        if v is not None and not (0 <= v <= 2):
+            raise ValueError("temperature must be between 0 and 2")
+        return v
+
+    @validator('top_p')
+    def validate_top_p(cls, v):
+        if v is not None and not (0 <= v <= 1):
+            raise ValueError("top_p must be between 0 and 1")
+        return v
+
+    @validator('n')
+    def validate_n(cls, v):
+        if v is not None and v < 1:
+            raise ValueError("n must be greater than 0")
+        return v
+
+    @validator('presence_penalty', 'frequency_penalty')
+    def validate_penalty(cls, v):
+        if v is not None and not (-2 <= v <= 2):
+            raise ValueError("penalty must be between -2 and 2")
+        return v
 
     class Config:
         json_schema_extra = {
             "example": {
-                "model": "GPT-3.5-Turbo",
+                "model": "GPT-4o",
                 "messages": [
                     {"role": "system", "content": "You are a helpful assistant."},
                     {"role": "user", "content": "Hello!"}
                 ],
-                "stream": True
+                "stream": True,
+                "temperature": 0.7
             }
         }
+        
+        schema_extra = {
+            "examples": [
+                {
+                    "model": "GPT-4o",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a helpful assistant."
+                        },
+                        {
+                            "role": "user",
+                            "content": "Hello!"
+                        }
+                    ]
+                }
+            ]
+        }
 
+def count_tokens(text: str) -> int:
+    # 这是一个简单的token计数估算
+    # 实际应用中可以使用更准确的分词器
+    return len(text.split())
+
+def calculate_usage(messages: List[Message], response_text: str) -> Dict[str, int]:
+    prompt_tokens = sum(count_tokens(msg.get_content_text()) for msg in messages)
+    completion_tokens = count_tokens(response_text)
+    total_tokens = prompt_tokens + completion_tokens
+    return {
+        "prompt_tokens": prompt_tokens,
+        "completion_tokens": completion_tokens,
+        "total_tokens": total_tokens
+    }
 
 async def add_token(token: str):
     global api_key_cycle
@@ -103,9 +210,9 @@ async def add_token(token: str):
 
     if token not in client_dict:
         try:
-            logger.info(f"Attempting to add apikey: {token[:6]}...")  # 只记录前6位
+            logger.debug(f"Attempting to add apikey: {token[:6]}...")  # 只记录前6位
             request = CompletionRequest(
-                model="GPT-3.5-Turbo",
+                model="GPT-4o",
                 messages=[Message(role="user", content="Please return 'OK'")],
                 temperature=0.7
             )
@@ -113,7 +220,7 @@ async def add_token(token: str):
             if ret == "OK":
                 client_dict[token] = token
                 api_key_cycle = itertools.cycle(client_dict.values())
-                logger.info(f"apikey added successfully: {token[:6]}...")
+                logger.info(f"API key {token[:6]}... added successfully")
                 return "ok"
             else:
                 logger.error(f"Failed to add apikey: {token[:6]}..., response: {ret}")
@@ -128,7 +235,7 @@ async def add_token(token: str):
                     return f"failed: {str(exception)}"
             return f"failed: {str(exception)}"
     else:
-        logger.info(f"apikey already exists: {token[:6]}...")
+        logger.debug(f"API key {token[:6]}... already exists")
         return "exist"
 
 
@@ -147,7 +254,7 @@ async def get_responses(request: CompletionRequest, token: str):
             "temperature": request.temperature,
             "skip_system_prompt": request.skip_system_prompt if request.skip_system_prompt is not None else False,
             "logit_bias": request.logit_bias if request.logit_bias is not None else {},
-            "stop_sequences": request.stop_sequences if request.stop_sequences is not None else []
+            "stop_sequences": request.stop if request.stop is not None else []
         }
         query = QueryRequest(
             query=message,
@@ -199,46 +306,89 @@ async def options_handler(full_path: str, request: Request):
 
 @router.post("/v1/chat/completions")
 @router.post("/chat/completions")
-async def create_completion(request: CompletionRequest, token: str = Depends(verify_token)):
-    request_id = "chat$poe-to-gpt$-" + token[:6]
+async def create_completion(request: Request, token: str = Depends(verify_token)):
+    request_id = "chatcmpl-" + token[:6]
+    created_time = int(asyncio.get_event_loop().time())
 
     try:
-        # 打印请求参数（隐藏敏感信息）
-        safe_request = request.model_dump()
-        if "messages" in safe_request:
-            safe_request["messages"] = [
-                {**msg, "content": msg["content"][:100] + "..." if len(msg["content"]) > 100 else msg["content"]}
-                for msg in safe_request["messages"]
-            ]
-        logger.info(f"Request [{request_id}]: {json.dumps(safe_request, ensure_ascii=False)}")
+        # 获取并记录原始请求数据
+        raw_request = await request.json()
+        logger.debug(f"Raw request [{request_id}]:")
+        logger.debug(json.dumps(raw_request, ensure_ascii=False, indent=2))
+
+        # 尝试解析为 CompletionRequest
+        try:
+            completion_request = CompletionRequest(**raw_request)
+        except ValidationError as e:
+            logger.error(f"Validation error for request [{request_id}]:")
+            logger.error(str(e))
+            return JSONResponse(
+                status_code=422,
+                content={
+                    "error": {
+                        "message": "Invalid request format",
+                        "type": "invalid_request_error",
+                        "param": None,
+                        "code": None,
+                        "details": str(e)
+                    }
+                }
+            )
+
+        # 打印解析后的请求参数
+        logger.debug(f"Parsed request [{request_id}] - Full details:")
+        logger.debug(f"Model: {completion_request.model}")
+        logger.debug(f"Stream: {completion_request.stream}")
+        logger.debug(f"Temperature: {completion_request.temperature}")
+        logger.debug("Messages:")
+        for idx, msg in enumerate(completion_request.messages):
+            logger.debug(f"  [{idx}] Role: {msg.role}")
+            logger.debug(f"  [{idx}] Content: {msg.get_content_text()}")
 
         if not api_key_cycle:
             raise HTTPException(status_code=500, detail="No valid API tokens available")
 
-        model_lower = request.model.lower()
+        model_lower = completion_request.model.lower()
         if model_lower not in bot_names_map:
-            raise HTTPException(status_code=400, detail=f"Model {request.model} not found")
+            return JSONResponse(
+                status_code=404,
+                content={
+                    "error": {
+                        "message": f"Model {completion_request.model} not found",
+                        "type": "invalid_request_error",
+                        "param": "model",
+                        "code": "model_not_found"
+                    }
+                }
+            )
 
-        request.model = bot_names_map[model_lower]
+        completion_request.model = bot_names_map[model_lower]
         
         protocol_messages = [
-            ProtocolMessage(role=msg.role if msg.role in ["user", "system"] else "bot", content=msg.content)
-            for msg in request.messages
+            ProtocolMessage(
+                role=msg.role if msg.role in ["user", "system"] else "bot", 
+                content=msg.get_content_text()
+            )
+            for msg in completion_request.messages
         ]
         poe_token = next(api_key_cycle)
+        logger.info(f"Processing request [{request_id}] with model {completion_request.model}")
 
-        if request.stream:
+        if completion_request.stream:
             import re
             async def response_generator():
                 total_response = ""
                 last_sent_base_content = None
                 elapsed_time_pattern = re.compile(r" \(\d+s elapsed\)$")
+                chunk_count = 0
 
                 try:
-                    async for partial in get_bot_response(protocol_messages, bot_name=request.model, api_key=poe_token,
+                    logger.info(f"Starting stream response for request [{request_id}]")
+                    async for partial in get_bot_response(protocol_messages, bot_name=completion_request.model, api_key=poe_token,
                                                           session=proxy):
                         if partial and partial.text:
                             if partial.text.strip() in ["Thinking...", "Generating image..."]:
+                                logger.debug(f"Skipping status message: {partial.text}")
                                 continue
                                 
                             base_content = elapsed_time_pattern.sub("", partial.text)
@@ -246,12 +396,16 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                             if last_sent_base_content == base_content:
                                 continue
 
+                            chunk_count += 1
                             total_response += base_content
+                            logger.debug(f"Stream chunk [{request_id}] #{chunk_count}: {base_content}")
+                            
                             chunk = {
                                 "id": request_id,
                                 "object": "chat.completion.chunk",
-                                "created": int(asyncio.get_event_loop().time()),
-                                "model": request.model,
+                                "created": created_time,
+                                "model": completion_request.model,
+                                "system_fingerprint": f"fp_{request_id}",
                                 "choices": [{
                                     "delta": {
                                         "content": base_content
@@ -263,54 +417,70 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                             yield f"data: {json.dumps(chunk)}\n\n"
                             last_sent_base_content = base_content
 
+                    # 计算使用量
+                    usage = calculate_usage(completion_request.messages, total_response)
+                    
                     # 发送结束标记
+                    logger.info(f"Stream completed for [{request_id}] - Total chunks: {chunk_count}")
+                    logger.debug(f"Final response [{request_id}]: {total_response}")
+                    
                     end_chunk = {
                         "id": request_id,
                         "object": "chat.completion.chunk",
-                        "created": int(asyncio.get_event_loop().time()),
-                        "model": request.model,
+                        "created": created_time,
+                        "model": completion_request.model,
+                        "system_fingerprint": f"fp_{request_id}",
                         "choices": [{
                             "delta": {},
                             "index": 0,
                             "finish_reason": "stop"
-                        }]
+                        }],
+                        "usage": usage
                     }
                     yield f"data: {json.dumps(end_chunk)}\n\n"
                     yield "data: [DONE]\n\n"
 
-                    # 打印完整的流式响应（限制长度）
-                    logger.info(f"Stream Response [{request_id}]: {total_response[:200]}..." if len(
-                        total_response) > 200 else total_response)
                 except BotError as be:
+                    error_message = f"BotError in stream generation for [{request_id}]:"
+                    error_message += f"\nError type: {type(be)}"
+                    error_message += f"\nError args: {be.args}"
+                    if hasattr(be, 'text'):
+                        error_message += f"\nError text: {be.text}"
+                    logger.error(error_message)
                     
-                    error_chunk = {
-                        "id": request_id,
-                        "object": "chat.completion.chunk",
-                        "created": int(asyncio.get_event_loop().time()),
-                        "model": request.model,
-                        "choices": [{
-                            "delta": {
-                                "content": json.loads(be.args[0])["text"]
-                            },
-                            "index": 0,
-                            "finish_reason": "error"
-                        }]
+                    error_response = {
+                        "error": {
+                            "message": str(be),
+                            "type": "bot_error",
+                            "param": None,
+                            "code": "bot_error"
+                        }
                     }
-                    yield f"data: {json.dumps(error_chunk)}\n\n"
+                    
+                    yield f"data: {json.dumps(error_response)}\n\n"
                     yield "data: [DONE]\n\n"
-                    logger.error(f"BotError in stream generation for [{request_id}]: {str(be)}")
                 except Exception as e:
-                    logger.error(f"Error in stream generation for [{request_id}]: {str(e)}")
+                    error_message = f"Error in stream generation for [{request_id}]:"
+                    error_message += f"\nError type: {type(e)}"
+                    error_message += f"\nError message: {str(e)}"
+                    error_message += f"\nError args: {e.args}"
+                    logger.error(error_message)
                     raise
 
             return StreamingResponse(response_generator(), media_type="text/event-stream")
         else:
-            response = await get_responses(request, poe_token)
+            logger.info(f"Starting non-stream response for request [{request_id}]")
+            response = await get_responses(completion_request, poe_token)
+            
+            # 计算使用量
+            usage = calculate_usage(completion_request.messages, response)
+            
             response_data = {
                 "id": request_id,
                 "object": "chat.completion",
-                "created": int(asyncio.get_event_loop().time()),
-                "model": request.model,
+                "created": created_time,
+                "model": completion_request.model,
+                "system_fingerprint": f"fp_{request_id}",
                 "choices": [{
                     "index": 0,
                     "message": {
@@ -318,21 +488,49 @@ async def create_completion(request: CompletionRequest, token: str = Depends(ver
                         "content": response
                     },
                     "finish_reason": "stop"
-                }]
+                }],
+                "usage": usage
             }
-            # 打印完整响应（限制长度）
-            safe_response = {**response_data}
-            if len(response) > 200:
-                logger.info(f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)[:200]}...")
-            else:
-                logger.info(f"Response [{request_id}]: {json.dumps(safe_response, ensure_ascii=False)}")
+            
+            # 打印完整响应
+            logger.info(f"Non-stream response completed for [{request_id}]")
+            logger.debug(f"Response content: {response}")
+            logger.debug(f"Response data: {json.dumps(response_data, ensure_ascii=False)}")
+            
             return response_data
     except GeneratorExit:
         logger.info(f"GeneratorExit exception caught for request [{request_id}]")
+    except json.JSONDecodeError as e:
+        error_message = f"Invalid JSON in request body: {str(e)}"
+        logger.error(error_message)
+        return JSONResponse(
+            status_code=400,
+            content={
+                "error": {
+                    "message": error_message,
+                    "type": "invalid_request_error",
+                    "param": "body",
+                    "code": "json_decode_error"
+                }
+            }
+        )
     except Exception as e:
-        error_msg = f"Error during response for request [{request_id}]: {str(e)}"
-        logger.error(error_msg)
-        raise HTTPException(status_code=500, detail=str(e))
+        error_message = f"Error during response for request [{request_id}]:"
+        error_message += f"\nError type: {type(e)}"
+        error_message += f"\nError message: {str(e)}"
+        error_message += f"\nError args: {e.args}"
+        logger.error(error_message)
+        return JSONResponse(
+            status_code=500,
+            content={
+                "error": {
+                    "message": str(e),
+                    "type": "internal_server_error",
+                    "param": None,
+                    "code": "internal_error"
+                }
+            }
+        )
 
 
 @router.get("/models")
@@ -355,7 +553,7 @@ async def initialize_tokens(tokens: List[str]):
         else:
             global api_key_cycle
             api_key_cycle = itertools.cycle(client_dict.values())
-            logger.info(f"Successfully initialized {len(client_dict)} API tokens")
+            logger.info(f"Server initialized with {len(client_dict)} API tokens")
 
 
 app.include_router(router)
@@ -368,7 +566,7 @@ async def main(tokens: List[str] = None):
             app,
             host="0.0.0.0",
             port=PORT,
-            log_level="info"
+            log_level=LOG_LEVEL.lower()
         )
         server = uvicorn.Server(conf)
         await server.serve()
