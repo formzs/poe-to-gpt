@@ -1,3 +1,4 @@
+## Poe 官方已经原生支持openai格式API，此项目归档。
 ## fork修改内容
 
 * 支持了cline
